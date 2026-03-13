@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}板子管理{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-xl font-bold">板子管理</h1>
+  <a href="/script/new" class="btn btn-primary">+ 新建板子</a>
+</div>
+
+{% if scripts %}
+{% for s in scripts %}
+<div class="card p-4 mb-3">
+  <div class="flex justify-between items-start mb-3">
+    <div>
+      <h3 class="font-bold">{{ s.name }}</h3>
+      <span class="text-xs text-gray-500">{{ s.characterIds|length }} 个角色</span>
+    </div>
+    <div class="flex gap-2">
+      <a href="/script/{{ s.id }}/edit" class="btn btn-ghost text-xs px-2 py-1">编辑</a>
+      <form method="POST" action="/script/{{ s.id }}/delete" onsubmit="return confirm('确认删除？')">
+        <button class="btn btn-danger text-xs px-2 py-1">删除</button>
+      </form>
+    </div>
+  </div>
+  <!-- 角色预览 -->
+  <div class="flex flex-wrap gap-1.5">
+    {% for cid in s.characterIds %}
+    {% if cid in char_map %}
+    {% set c = char_map[cid] %}
+    <div class="flex items-center gap-1 px-2 py-1 rounded-full text-xs border border-opacity-30 type-{{ c.type }}" style="border-color: currentColor; background: rgba(128,128,128,0.1);">
+      {% if c.image %}
+        {% if c.image.startswith('http://') or c.image.startswith('https://') %}
+        <img src="{{ c.image }}" class="w-4 h-4 rounded-full object-cover">
+        {% else %}
+        <img src="/images/{{ c.image }}" class="w-4 h-4 rounded-full object-cover">
+        {% endif %}
+      {% endif %}
+      {{ c.name }}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<p class="text-center text-gray-600 mt-10">还没有板子，点击右上角新建</p>
+{% endif %}
+{% endblock %}

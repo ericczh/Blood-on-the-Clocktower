@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}角色库{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-xl font-bold">角色库</h1>
+  <a href="/character/new" class="btn btn-primary">+ 新增角色</a>
+</div>
+
+{% for type_key in ["townsfolk","outsider","minion","demon","traveller","fabled"] %}
+{% if type_key in grouped %}
+<div class="mb-6">
+  <h2 class="text-sm font-bold mb-3 type-{{ type_key }}">
+    {{ type_labels.get(type_key, type_key) }} ({{ grouped[type_key]|length }})
+  </h2>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    {% for c in grouped[type_key] %}
+    <div class="card p-3 flex items-center gap-3 bg-type-{{ type_key }}">
+      {% if c.image %}
+        {% if c.image.startswith('http://') or c.image.startswith('https://') %}
+        <img src="{{ c.image }}" class="char-token-sm" alt="{{ c.name }}">
+        {% else %}
+        <img src="/images/{{ c.image }}" class="char-token-sm" alt="{{ c.name }}">
+        {% endif %}
+      {% else %}
+      <div class="char-token-sm flex items-center justify-center text-lg">
+        {{ c.name[0] }}
+      </div>
+      {% endif %}
+      <div class="flex-1 min-w-0">
+        <div class="font-bold text-sm truncate">{{ c.name }}
+          <span class="text-gray-500 text-xs font-normal">{{ c.nameEn }}</span>
+        </div>
+        <div class="text-xs text-gray-400 truncate">{{ c.ability[:40] }}{% if c.ability|length > 40 %}...{% endif %}</div>
+      </div>
+      <div class="flex gap-1 shrink-0">
+        <a href="/character/{{ c.id }}/edit" class="btn btn-ghost text-xs px-2 py-1">编辑</a>
+        <form method="POST" action="/character/{{ c.id }}/delete"
+              onsubmit="return confirm('删除角色 {{ c.name }}？')">
+          <button class="btn btn-danger text-xs px-2 py-1">删</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

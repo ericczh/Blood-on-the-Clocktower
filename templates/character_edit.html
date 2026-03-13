@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ "编辑" if char else "新增" }}角色{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-6">{{ "编辑角色" if char else "新增角色" }}</h1>
+
+<form method="POST" enctype="multipart/form-data" class="space-y-4">
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="text-sm text-gray-400">角色ID（英文，唯一）</label>
+      <input name="id" class="input mt-1" value="{{ char.id if char else '' }}"
+             placeholder="如 washerwoman" {{ "readonly" if char else "" }}>
+    </div>
+    <div>
+      <label class="text-sm text-gray-400">类型</label>
+      <select name="type" class="input mt-1">
+        {% for k, v in type_labels.items() %}
+        <option value="{{ k }}" {{ "selected" if char and char.type == k else "" }}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="text-sm text-gray-400">中文名</label>
+      <input name="name" class="input mt-1" value="{{ char.name if char else '' }}" required placeholder="洗衣妇">
+    </div>
+    <div>
+      <label class="text-sm text-gray-400">英文名</label>
+      <input name="nameEn" class="input mt-1" value="{{ char.nameEn if char else '' }}" placeholder="Washerwoman">
+    </div>
+  </div>
+
+  <div>
+    <label class="text-sm text-gray-400">能力描述</label>
+    <textarea name="ability" class="input mt-1 h-24 resize-none" placeholder="描述角色能力...">{{ char.ability if char else '' }}</textarea>
+  </div>
+
+  <!-- 图片上传 -->
+  <div>
+    <label class="text-sm text-gray-400">角色图片/Token</label>
+    <div class="flex items-center gap-4 mt-2">
+      {% if char and char.image %}
+        {% if char.image.startswith('http://') or char.image.startswith('https://') %}
+        <img src="{{ char.image }}" class="char-token" alt="">
+        {% else %}
+        <img src="/images/{{ char.image }}" class="char-token" alt="">
+        {% endif %}
+      {% else %}
+      <div class="char-token flex items-center justify-center text-2xl text-gray-500">?</div>
+      {% endif %}
+      <div class="flex-1 space-y-2">
+        <div>
+          <input type="file" name="image_file" accept="image/*"
+                 class="text-sm text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:cursor-pointer hover:file:bg-indigo-500">
+          <p class="text-xs text-gray-500 mt-1">支持 PNG / JPG / GIF / WebP / SVG</p>
+        </div>
+        <div>
+          <input type="text" name="image_url" class="input" 
+                 value="{{ char.image if char and (char.image.startswith('http://') or char.image.startswith('https://')) else '' }}"
+                 placeholder="或输入图片URL，如：https://example.com/image.png">
+          <p class="text-xs text-gray-500 mt-1">图片URL优先级高于上传文件</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="text-sm text-gray-400">首夜行动顺序（可选）</label>
+      <input name="firstNight" type="number" class="input mt-1"
+             value="{{ char.firstNight if char and char.firstNight else '' }}" placeholder="留空=无">
+    </div>
+    <div>
+      <label class="text-sm text-gray-400">其他夜晚顺序（可选）</label>
+      <input name="otherNights" type="number" class="input mt-1"
+             value="{{ char.otherNights if char and char.otherNights else '' }}" placeholder="留空=无">
+    </div>
+  </div>
+
+  <div class="flex gap-4">
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="causeDrunk" value="1"
+             {{ "checked" if char and char.get("causeDrunk") else "" }}>
+      可致醉
+    </label>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="causePoison" value="1"
+             {{ "checked" if char and char.get("causePoison") else "" }}>
+      可致毒
+    </label>
+  </div>
+
+  <div class="flex gap-3 pt-2">
+    <button type="submit" class="btn btn-primary flex-1 justify-center">保存</button>
+    <a href="/characters" class="btn btn-ghost flex-1 justify-center">取消</a>
+  </div>
+</form>
+{% endblock %}

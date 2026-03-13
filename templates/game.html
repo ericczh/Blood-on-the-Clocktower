@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}对局 - {{ game.scriptName }}{% endblock %}
+{% block head %}
+<style>
+  .seat-ring { position: relative; margin: 0 auto; }
+  .seat-dot { position: absolute; width: 52px; height: 52px; margin: -26px 0 0 -26px;
+    border-radius: 50%; border: 2px solid #555; background: #1a1a2e;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s; font-size: 11px; z-index: 2; }
+  .seat-dot:hover { border-color: #fff; transform: scale(1.1); }
+  .seat-dot.dead { opacity: 0.4; }
+  .seat-dot.drunk-poison { box-shadow: 0 0 8px #a855f7; }
+  .seat-dot .seat-num { font-weight: bold; font-size: 13px; }
+  .seat-dot .seat-name { font-size: 8px; max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seat-img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; position: absolute; top: -10px; right: -10px; border: 1px solid #333; }
+  .day-tab { padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; background: #1e1e30; }
+  .day-tab.active { background: #4f46e5; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <a href="/" class="text-sm text-gray-400 hover:text-white">&larr; 返回</a>
+  <h2 class="font-bold">{{ game.scriptName }}</h2>
+  <span class="text-xs px-2 py-1 rounded {{ 'bg-green-800' if game.status == 'active' else 'bg-gray-600' }}">
+    {{ "进行中" if game.status == "active" else ("善良胜" if game.winner == "good" else "邪恶胜") }}
+  </span>
+</div>
+
+<!-- 座位图 -->
+{% set n = game.seats|length %}
+{% set size = 320 %}
+{% set r = 120 %}
+{% set cx = size // 2 %}
+{% set cy = size // 2 %}
+<div class="seat-ring" style="width:{{ size }}px; height:{{ size }}px;">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#555;font-size:12px;">
+    魔典<br><span style="font-size:10px;">{{ n }}人局</span>
+    {% if dist %}
+    <br><span style="font-size:9px;color:#666;">{{ dist[0] }}镇+{{ dist[1] }}外+{{ dist[2] }}爪+{{ dist[3] }}魔</span>
+    {% endif %}
+  </div>
+  {% for seat in game.seats %}
+  {% set angle = -1.5708 + (loop.index0 * 6.2832 / n) %}
+  {% set x = cx + (r * angle|cos)|round|int %}
+  {% set y = cy + (r * angle|sin)|round|int %}
+  <div class="seat-dot {{ 'dead' if not seat.alive else '' }} {{ 'drunk-poison' if seat.drunkPoisoned else '' }}"
+       style="left:{{ x }}px; top:{{ y }}px; border-color:{{
+         '#4a9eff' if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].type == 'townsfolk' else
+         '#22c55e' if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].type == 'outsider' else
+         '#f97316' if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].type == 'minion' else
+         '#ef4444' if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].type == 'demon' else '#555'
+       }}"
+       onclick="selectSeat({{ seat.id }})" id="seat-{{ seat.id }}">
+    <span class="seat-num">{{ seat.id }}</span>
+    <span class="seat-name">{{ char_map[seat.characterId].name if seat.characterId and seat.characterId in char_map else (seat.playerName or '空') }}</span>
+    {% if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].image %}
+      {% set img = char_map[seat.characterId].image %}
+      {% if img.startswith('http://') or img.startswith('https://') %}
+      <img src="{{ img }}" class="seat-img">
+      {% else %}
+      <img src="/images/{{ img }}" class="seat-img">
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- 座位编辑面板 -->
+<div id="seatPanel" class="card p-4 mt-4 hidden">
+  <div class="flex justify-between items-center mb-3">
+    <h3 class="font-bold">座位 <span id="sp-num"></span></h3>
+    <button onclick="closeSeatPanel()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+  </div>
+  <div class="space-y-3">
+    <div>
+      <label class="text-sm text-gray-400">玩家昵称</label>
+      <input id="sp-name" class="input mt-1" placeholder="玩家昵称">
+    </div>
+    <div>
+      <label class="text-sm text-gray-400">真实角色</label>
+      <select id="sp-char" class="input mt-1">
+        <option value="">-- 未分配 --</option>
+        {% for type_key in ["townsfolk","outsider","minion","demon"] %}
+        {% if type_key in grouped_chars %}
+        <optgroup label="{{ type_labels[type_key] }}">
+          {% for c in grouped_chars[type_key] %}
+          <option value="{{ c.id }}">{{ c.name }} ({{ c.nameEn }})</option>
+          {% endfor %}
+        </optgroup>
+        {% endif %}
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-sm text-gray-400">声称身份</label>
+      <input id="sp-claimed" class="input mt-1" placeholder="声称的角色">
+    </div>
+    <div class="flex gap-4">
+      <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="sp-alive"> 存活</label>
+      <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="sp-vote"> 有票</label>
+      <label class="flex items-center gap-2 text-sm text-purple-400"><input type="checkbox" id="sp-drunk"> 醉/毒</label>
+    </div>
+    <div>
+      <label class="text-sm text-gray-400">备注</label>
+      <textarea id="sp-notes" class="input mt-1 h-16 resize-none"></textarea>
+    </div>
+    <button onclick="saveSeat()" class="btn btn-primary w-full justify-center">保存</button>
+  </div>
+</div>
+
+<!-- 时间线 -->
+<div class="flex items-center gap-2 mt-6 mb-3 overflow-x-auto pb-1">
+  {% for d in game.days %}
+  <div class="day-tab {{ 'active' if loop.index0 == game.days|length - 1 else '' }}"
+       onclick="switchDay({{ loop.index0 }})">
+    {{ "首夜" if d.dayNumber == 0 else "第%d天" % d.dayNumber }}
+  </div>
+  {% endfor %}
+  {% if game.status == 'active' %}
+  <button onclick="addDay()" class="day-tab hover:bg-gray-700">+ 新一天</button>
+  {% endif %}
+</div>
+
+<!-- 当天记录 -->
+<div class="card p-4 mb-4">
+  <div class="mb-3">
+    <label class="text-sm text-gray-400">本轮备注</label>
+    <textarea id="day-notes" class="input mt-1 h-20 resize-none" onchange="saveDayNotes()"></textarea>
+  </div>
+</div>
+
+<!-- 结束游戏 -->
+{% if game.status == 'active' %}
+<div class="flex gap-3 mb-8">
+  <button onclick="finishGame('good')" class="btn flex-1 justify-center bg-blue-700 hover:bg-blue-600 text-white">善良胜利</button>
+  <button onclick="finishGame('evil')" class="btn flex-1 justify-center bg-red-700 hover:bg-red-600 text-white">邪恶胜利</button>
+</div>
+{% endif %}
+
+<script>
+const GAME_ID = "{{ game.id }}";
+const gameData = {{ game | tojson }};
+let currentSeatId = null;
+let currentDayIdx = gameData.days.length - 1;
+
+// 角度计算辅助（Jinja 的 cos/sin 不可用，需要 JS 来修正位置——但我们已经在 Jinja 里算好了位置）
+
+function selectSeat(id) {
+  currentSeatId = id;
+  const seat = gameData.seats.find(s => s.id === id);
+  document.getElementById('sp-num').textContent = id;
+  document.getElementById('sp-name').value = seat.playerName || '';
+  document.getElementById('sp-char').value = seat.characterId || '';
+  document.getElementById('sp-claimed').value = seat.claimedRole || '';
+  document.getElementById('sp-alive').checked = seat.alive;
+  document.getElementById('sp-vote').checked = seat.hasVote;
+  document.getElementById('sp-drunk').checked = seat.drunkPoisoned;
+  document.getElementById('sp-notes').value = seat.notes || '';
+  document.getElementById('seatPanel').classList.remove('hidden');
+}
+
+function closeSeatPanel() {
+  document.getElementById('seatPanel').classList.add('hidden');
+  currentSeatId = null;
+}
+
+async function api(action, data = {}) {
+  const res = await fetch(`/game/${GAME_ID}/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...data }),
+  });
+  return res.json();
+}
+
+async function saveSeat() {
+  if (!currentSeatId) return;
+  const data = {
+    seatId: currentSeatId,
+    playerName: document.getElementById('sp-name').value,
+    characterId: document.getElementById('sp-char').value,
+    claimedRole: document.getElementById('sp-claimed').value,
+    alive: document.getElementById('sp-alive').checked,
+    hasVote: document.getElementById('sp-vote').checked,
+    drunkPoisoned: document.getElementById('sp-drunk').checked,
+    notes: document.getElementById('sp-notes').value,
+  };
+  await api('update_seat', data);
+  // 更新本地数据
+  const seat = gameData.seats.find(s => s.id === currentSeatId);
+  Object.assign(seat, data);
+  location.reload(); // 简单刷新以更新座位图
+}
+
+async function addDay() {
+  await api('add_day');
+  location.reload();
+}
+
+function switchDay(idx) {
+  currentDayIdx = idx;
+  document.querySelectorAll('.day-tab').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+  document.getElementById('day-notes').value = gameData.days[idx]?.notes || '';
+}
+
+async function saveDayNotes() {
+  const notes = document.getElementById('day-notes').value;
+  gameData.days[currentDayIdx].notes = notes;
+  await api('update_day', { dayIndex: currentDayIdx, notes });
+}
+
+async function finishGame(winner) {
+  if (!confirm(`确认 ${winner === 'good' ? '善良' : '邪恶'}阵营 胜利？`)) return;
+  await api('finish', { winner });
+  location.reload();
+}
+
+// 初始化
+document.getElementById('day-notes').value = gameData.days[currentDayIdx]?.notes || '';
+</script>
+{% endblock %}

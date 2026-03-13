@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}{{ "编辑" if script else "新建" }}板子{% endblock %}
+{% block head %}
+<style>
+  .char-pick { transition: all 0.15s; }
+  .char-pick:has(input:checked) { background: rgba(79, 70, 229, 0.25); border-color: #4f46e5; }
+  .char-pick:hover { border-color: #555; }
+</style>
+{% endblock %}
+{% block content %}
+<h1 class="text-xl font-bold mb-6">{{ "编辑板子" if script else "新建板子" }}</h1>
+
+<form method="POST" id="scriptForm">
+  <div class="mb-4">
+    <label class="text-sm text-gray-400">板子名称</label>
+    <input name="name" class="input mt-1" value="{{ script.name if script else '' }}"
+           required placeholder="如：暗流涌动 / 我的自定义板">
+  </div>
+
+  <!-- 统计 -->
+  <div class="flex gap-3 text-xs mb-4 flex-wrap" id="stats">
+    <span class="type-townsfolk">镇民: <b id="cnt-townsfolk">0</b></span>
+    <span class="type-outsider">外来者: <b id="cnt-outsider">0</b></span>
+    <span class="type-minion">爪牙: <b id="cnt-minion">0</b></span>
+    <span class="type-demon">恶魔: <b id="cnt-demon">0</b></span>
+    <span class="text-gray-400">共 <b id="cnt-total">0</b> 个</span>
+  </div>
+
+  <!-- 搜索 -->
+  <input type="text" id="search" class="input mb-4" placeholder="搜索角色...">
+
+  <!-- 全选/取消 -->
+  <div class="flex gap-2 mb-4">
+    <button type="button" onclick="toggleAll(true)" class="btn btn-ghost text-xs">全选</button>
+    <button type="button" onclick="toggleAll(false)" class="btn btn-ghost text-xs">全不选</button>
+  </div>
+
+  {% for type_key in ["townsfolk","outsider","minion","demon","traveller","fabled"] %}
+  {% if type_key in grouped %}
+  <div class="mb-5 char-group" data-type="{{ type_key }}">
+    <h3 class="text-sm font-bold mb-2 type-{{ type_key }}">{{ type_labels.get(type_key, type_key) }}</h3>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {% for c in grouped[type_key] %}
+      <label class="char-pick card p-2 flex items-center gap-2 cursor-pointer" data-name="{{ c.name }}{{ c.nameEn }}">
+        <input type="checkbox" name="characters" value="{{ c.id }}"
+               class="char-cb" data-type="{{ type_key }}"
+               {{ "checked" if c.id in selected_ids else "" }}>
+        {% if c.image %}
+        <img src="/images/{{ c.image }}" class="w-8 h-8 rounded-full object-cover shrink-0">
+        {% else %}
+        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-sm shrink-0">{{ c.name[0] }}</div>
+        {% endif %}
+        <div class="min-w-0">
+          <div class="text-sm font-medium truncate">{{ c.name }}</div>
+          <div class="text-xs text-gray-500 truncate">{{ c.nameEn }}</div>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  <div class="flex gap-3 pt-4 pb-8 sticky bottom-0 bg-gradient-to-t from-[#0f0f1a] pt-6">
+    <button type="submit" class="btn btn-primary flex-1 justify-center text-base py-3">保存板子</button>
+    <a href="/scripts" class="btn btn-ghost flex-1 justify-center">取消</a>
+  </div>
+</form>
+
+<script>
+function updateCounts() {
+  const types = ['townsfolk','outsider','minion','demon'];
+  let total = 0;
+  types.forEach(t => {
+    const cnt = document.querySelectorAll(`.char-cb[data-type="${t}"]:checked`).length;
+    document.getElementById('cnt-' + t).textContent = cnt;
+    total += cnt;
+  });
+  // 加上其他类型
+  total += document.querySelectorAll('.char-cb[data-type="traveller"]:checked,.char-cb[data-type="fabled"]:checked').length;
+  document.getElementById('cnt-total').textContent = total;
+}
+
+document.querySelectorAll('.char-cb').forEach(cb => cb.addEventListener('change', updateCounts));
+updateCounts();
+
+document.getElementById('search').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.char-pick').forEach(el => {
+    el.style.display = el.dataset.name.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+
+function toggleAll(checked) {
+  document.querySelectorAll('.char-pick:not([style*="display: none"]) .char-cb').forEach(cb => {
+    cb.checked = checked;
+  });
+  updateCounts();
+}
+</script>
+{% endblock %}
