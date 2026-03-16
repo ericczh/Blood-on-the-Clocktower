@@ -2,7 +2,10 @@
 {% block title %}对局 - {{ game.scriptName }}{% endblock %}
 {% block head %}
 <style>
-  .seat-ring { position: relative; margin: 0 auto; }
+  .seat-ring { position: relative; margin: 0 auto; width: 320px; height: 320px; }
+  #grimoire-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #555; font-size: 12px; }
+  #player-count { font-size: 10px; }
+  #distribution { font-size: 9px; color: #666; }
   .seat-dot { position: absolute; width: 52px; height: 52px; margin: -26px 0 0 -26px;
     border-radius: 50%; border: 2px solid #555; background: #1a1a2e;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -10,6 +13,11 @@
   .seat-dot:hover { border-color: #fff; transform: scale(1.1); }
   .seat-dot.dead { opacity: 0.4; }
   .seat-dot.drunk-poison { box-shadow: 0 0 8px #a855f7; }
+  .seat-dot.seat-type-townsfolk { border-color: #4a9eff; }
+  .seat-dot.seat-type-outsider { border-color: #22c55e; }
+  .seat-dot.seat-type-minion { border-color: #f97316; }
+  .seat-dot.seat-type-demon { border-color: #ef4444; }
+  .seat-dot.seat-type-none { border-color: #555; }
   .seat-dot .seat-num { font-weight: bold; font-size: 13px; }
   .seat-dot .seat-name { font-size: 8px; max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .seat-img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; position: absolute; top: -10px; right: -10px; border: 1px solid #333; }
@@ -32,27 +40,41 @@
 {% set r = 120 %}
 {% set cx = size // 2 %}
 {% set cy = size // 2 %}
-<div class="seat-ring" style="width:{{ size }}px; height:{{ size }}px;">
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#555;font-size:12px;">
-    魔典<br><span style="font-size:10px;">{{ n }}人局</span>
+<div class="seat-ring" id="seat-ring">
+  <div id="grimoire-center">
+    魔典<br><span id="player-count">{{ n }}人局</span>
     {% if dist %}
-    <br><span style="font-size:9px;color:#666;">{{ dist[0] }}镇+{{ dist[1] }}外+{{ dist[2] }}爪+{{ dist[3] }}魔</span>
+    <br><span id="distribution">{{ dist[0] }}镇+{{ dist[1] }}外+{{ dist[2] }}爪+{{ dist[3] }}魔</span>
     {% endif %}
   </div>
   {% for seat in game.seats %}
   {% set angle = -1.5708 + (loop.index0 * 6.2832 / n) %}
   {% set x = cx + (r * angle|cos)|round|int %}
   {% set y = cy + (r * angle|sin)|round|int %}
-  <div class="seat-dot {{ 'dead' if not seat.alive else '' }} {{ 'drunk-poison' if seat.drunkPoisoned else '' }}"
-       style="left:{{ x }}px; top:{{ y }}px; border-color:{{
-         '#4a9eff' if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].type == 'townsfolk' else
-         '#22c55e' if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].type == 'outsider' else
-         '#f97316' if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].type == 'minion' else
-         '#ef4444' if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].type == 'demon' else '#555'
-       }}"
-       onclick="selectSeat({{ seat.id }})" id="seat-{{ seat.id }}">
+  {% if seat.characterId and seat.characterId in char_map %}
+    {% set char_type = char_map[seat.characterId].type %}
+    {% set char_name = char_map[seat.characterId].name %}
+  {% else %}
+    {% set char_type = 'none' %}
+    {% set char_name = seat.playerName or '空' %}
+  {% endif %}
+  {% if not seat.alive %}
+    {% set dead_class = 'dead' %}
+  {% else %}
+    {% set dead_class = '' %}
+  {% endif %}
+  {% if seat.drunkPoisoned %}
+    {% set drunk_class = 'drunk-poison' %}
+  {% else %}
+    {% set drunk_class = '' %}
+  {% endif %}
+  <div class="seat-dot seat-type-{{ char_type }} {{ dead_class }} {{ drunk_class }}"
+       data-x="{{ x }}"
+       data-y="{{ y }}"
+       data-seat-id="{{ seat.id }}"
+       onclick="selectSeat(this.dataset.seatId)" id="seat-{{ seat.id }}">
     <span class="seat-num">{{ seat.id }}</span>
-    <span class="seat-name">{{ char_map[seat.characterId].name if seat.characterId and seat.characterId in char_map else (seat.playerName or '空') }}</span>
+    <span class="seat-name">{{ char_name }}</span>
     {% if seat.characterId and seat.characterId in char_map and char_map[seat.characterId].image %}
       {% set img = char_map[seat.characterId].image %}
       {% if img.startswith('http://') or img.startswith('https://') %}
@@ -112,7 +134,8 @@
 <div class="flex items-center gap-2 mt-6 mb-3 overflow-x-auto pb-1">
   {% for d in game.days %}
   <div class="day-tab {{ 'active' if loop.index0 == game.days|length - 1 else '' }}"
-       onclick="switchDay({{ loop.index0 }})">
+       data-day-index="{{ loop.index0 }}"
+       onclick="switchDay(this.dataset.dayIndex)">
     {{ "首夜" if d.dayNumber == 0 else "第%d天" % d.dayNumber }}
   </div>
   {% endfor %}
@@ -137,87 +160,13 @@
 </div>
 {% endif %}
 
+<div id="game-data" data-game-id="{{ game.id }}" data-game='{{ game | tojson }}'></div>
+<script src="/static/game.js"></script>
 <script>
-const GAME_ID = "{{ game.id }}";
-const gameData = {{ game | tojson }};
-let currentSeatId = null;
-let currentDayIdx = gameData.days.length - 1;
-
-// 角度计算辅助（Jinja 的 cos/sin 不可用，需要 JS 来修正位置——但我们已经在 Jinja 里算好了位置）
-
-function selectSeat(id) {
-  currentSeatId = id;
-  const seat = gameData.seats.find(s => s.id === id);
-  document.getElementById('sp-num').textContent = id;
-  document.getElementById('sp-name').value = seat.playerName || '';
-  document.getElementById('sp-char').value = seat.characterId || '';
-  document.getElementById('sp-claimed').value = seat.claimedRole || '';
-  document.getElementById('sp-alive').checked = seat.alive;
-  document.getElementById('sp-vote').checked = seat.hasVote;
-  document.getElementById('sp-drunk').checked = seat.drunkPoisoned;
-  document.getElementById('sp-notes').value = seat.notes || '';
-  document.getElementById('seatPanel').classList.remove('hidden');
-}
-
-function closeSeatPanel() {
-  document.getElementById('seatPanel').classList.add('hidden');
-  currentSeatId = null;
-}
-
-async function api(action, data = {}) {
-  const res = await fetch(`/game/${GAME_ID}/update`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, ...data }),
-  });
-  return res.json();
-}
-
-async function saveSeat() {
-  if (!currentSeatId) return;
-  const data = {
-    seatId: currentSeatId,
-    playerName: document.getElementById('sp-name').value,
-    characterId: document.getElementById('sp-char').value,
-    claimedRole: document.getElementById('sp-claimed').value,
-    alive: document.getElementById('sp-alive').checked,
-    hasVote: document.getElementById('sp-vote').checked,
-    drunkPoisoned: document.getElementById('sp-drunk').checked,
-    notes: document.getElementById('sp-notes').value,
-  };
-  await api('update_seat', data);
-  // 更新本地数据
-  const seat = gameData.seats.find(s => s.id === currentSeatId);
-  Object.assign(seat, data);
-  location.reload(); // 简单刷新以更新座位图
-}
-
-async function addDay() {
-  await api('add_day');
-  location.reload();
-}
-
-function switchDay(idx) {
-  currentDayIdx = idx;
-  document.querySelectorAll('.day-tab').forEach((el, i) => {
-    el.classList.toggle('active', i === idx);
-  });
-  document.getElementById('day-notes').value = gameData.days[idx]?.notes || '';
-}
-
-async function saveDayNotes() {
-  const notes = document.getElementById('day-notes').value;
-  gameData.days[currentDayIdx].notes = notes;
-  await api('update_day', { dayIndex: currentDayIdx, notes });
-}
-
-async function finishGame(winner) {
-  if (!confirm(`确认 ${winner === 'good' ? '善良' : '邪恶'}阵营 胜利？`)) return;
-  await api('finish', { winner });
-  location.reload();
-}
-
-// 初始化
-document.getElementById('day-notes').value = gameData.days[currentDayIdx]?.notes || '';
+// 从 data 属性读取游戏数据
+const gameDataEl = document.getElementById('game-data');
+const gameId = gameDataEl.dataset.gameId;
+const gameData = JSON.parse(gameDataEl.dataset.game);
+initGame(gameId, gameData);
 </script>
 {% endblock %}
