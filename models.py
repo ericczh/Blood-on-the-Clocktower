@@ -37,6 +37,16 @@ class Character(db.Model, SoftDeleteMixin):
     other_nights = db.Column(db.Integer)
     cause_drunk = db.Column(db.Boolean, default=False)
     cause_poison = db.Column(db.Boolean, default=False)
+    # 筛选标签（可由 auto_tag() 自动推断，也可手动设置）
+    tag_first_night_info = db.Column(db.Boolean, default=False)  # 首夜得知
+    tag_first_night_act  = db.Column(db.Boolean, default=False)  # 首夜行动
+    tag_every_night      = db.Column(db.Boolean, default=False)  # 每夜行动（含首夜）
+    tag_other_nights     = db.Column(db.Boolean, default=False)  # 从第二夜起每夜
+    tag_limited          = db.Column(db.Boolean, default=False)  # 限次能力
+    tag_gains_ability    = db.Column(db.Boolean, default=False)  # 获得能力
+    tag_passive          = db.Column(db.Boolean, default=False)  # 被动能力
+    tag_death_trigger    = db.Column(db.Boolean, default=False)  # 死亡触发
+    tag_public_trigger   = db.Column(db.Boolean, default=False)  # 公开触发
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -53,6 +63,17 @@ class Character(db.Model, SoftDeleteMixin):
             'otherNights': self.other_nights,
             'causeDrunk': self.cause_drunk,
             'causePoison': self.cause_poison,
+            'tags': {
+                'firstNightInfo': self.tag_first_night_info,
+                'firstNightAct':  self.tag_first_night_act,
+                'everyNight':     self.tag_every_night,
+                'otherNights':    self.tag_other_nights,
+                'limited':        self.tag_limited,
+                'gainsAbility':   self.tag_gains_ability,
+                'passive':        self.tag_passive,
+                'deathTrigger':   self.tag_death_trigger,
+                'publicTrigger':  self.tag_public_trigger,
+            },
         }
 
 

@@ -1,7 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="text-2xl font-bold text-center mb-1">血染钟楼</h1>
-<p class="text-center text-gray-500 text-sm mb-8">说书人助手</p>
+<p class="text-center text-gray-500 text-sm mb-4">说书人助手</p>
+
+{% set total_chars = namespace(n=0) %}
+{% for chars in grouped.values() %}{% set total_chars.n = total_chars.n + chars|length %}{% endfor %}
+{% if grouped %}
+<div class="flex flex-wrap justify-center gap-2 mb-6">
+  {% for type_key, label in type_labels.items() %}
+  {% if type_key in grouped %}
+  <a href="/characters" class="text-xs px-3 py-1 rounded-full type-{{ type_key }}" style="background:rgba(255,255,255,0.05);border:1px solid currentColor">
+    {{ label }} {{ grouped[type_key]|length }}
+  </a>
+  {% endif %}
+  {% endfor %}
+  <span class="text-xs px-3 py-1 rounded-full text-gray-400" style="background:rgba(255,255,255,0.05);border:1px solid #444">
+    共 {{ total_chars.n }} 个角色
+  </span>
+</div>
+{% else %}
+<p class="text-center text-gray-600 text-xs mb-6">
+  角色库为空 — <a href="/characters" class="text-indigo-400">去角色库 Wiki 同步</a>
+</p>
+{% endif %}
+
 
 <!-- 新建对局 -->
 <div class="card p-5 mb-6">

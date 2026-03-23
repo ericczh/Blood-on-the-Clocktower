@@ -1,0 +1,94 @@
+[
+  {
+    "id": "saint",
+    "name": "圣人",
+    "nameEn": "Saint",
+    "type": "outsider",
+    "ability": "如果你被处决，邪恶阵营获胜。",
+    "image": "",
+    "firstNight": null,
+    "otherNights": null,
+    "causeDrunk": false,
+    "causePoison": false,
+    "tags": {
+      "firstNightInfo": false,
+      "firstNightAct": false,
+      "everyNight": false,
+      "otherNights": false,
+      "limited": false,
+      "gainsAbility": false,
+      "passive": false,
+      "deathTrigger": false,
+      "publicTrigger": false
+    }
+  },
+  {
+    "id": "butler",
+    "name": "管家",
+    "nameEn": "Butler",
+    "type": "outsider",
+    "ability": "每个夜晚，选择一名其他玩家：明天白天你只能在该玩家也投票时才能投票。",
+    "image": "",
+    "firstNight": null,
+    "otherNights": 5,
+    "causeDrunk": false,
+    "causePoison": false,
+    "tags": {
+      "firstNightInfo": false,
+      "firstNightAct": false,
+      "everyNight": true,
+      "otherNights": false,
+      "limited": false,
+      "gainsAbility": false,
+      "passive": false,
+      "deathTrigger": false,
+      "publicTrigger": false
+    }
+  },
+  {
+    "id": "drunk",
+    "name": "酒鬼",
+    "nameEn": "Drunk",
+    "type": "outsider",
+    "ability": "你以为自己是一个镇民角色，但实际上不是。你的能力无效。",
+    "image": "",
+    "firstNight": null,
+    "otherNights": null,
+    "causeDrunk": true,
+    "causePoison": false,
+    "tags": {
+      "firstNightInfo": false,
+      "firstNightAct": false,
+      "everyNight": false,
+      "otherNights": false,
+      "limited": false,
+      "gainsAbility": false,
+      "passive": false,
+      "deathTrigger": false,
+      "publicTrigger": false
+    }
+  },
+  {
+    "id": "recluse",
+    "name": "隐士",
+    "nameEn": "Recluse",
+    "type": "outsider",
+    "ability": "你可能会被视为邪恶角色或爪牙角色，即使你实际上是善良的。",
+    "image": "",
+    "firstNight": null,
+    "otherNights": null,
+    "causeDrunk": false,
+    "causePoison": false,
+    "tags": {
+      "firstNightInfo": false,
+      "firstNightAct": false,
+      "everyNight": false,
+      "otherNights": false,
+      "limited": false,
+      "gainsAbility": false,
+      "passive": false,
+      "deathTrigger": false,
+      "publicTrigger": false
+    }
+  }
+]

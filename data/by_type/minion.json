@@ -1,0 +1,94 @@
+[
+  {
+    "id": "poisoner",
+    "name": "投毒者",
+    "nameEn": "Poisoner",
+    "type": "minion",
+    "ability": "每个夜晚，选择一名玩家：该玩家今晚和明天白天中毒。",
+    "image": "",
+    "firstNight": 7,
+    "otherNights": 0,
+    "causeDrunk": false,
+    "causePoison": true,
+    "tags": {
+      "firstNightInfo": false,
+      "firstNightAct": false,
+      "everyNight": true,
+      "otherNights": false,
+      "limited": false,
+      "gainsAbility": false,
+      "passive": false,
+      "deathTrigger": false,
+      "publicTrigger": false
+    }
+  },
+  {
+    "id": "baron",
+    "name": "男爵",
+    "nameEn": "Baron",
+    "type": "minion",
+    "ability": "场上会多2名外来者。",
+    "image": "",
+    "firstNight": null,
+    "otherNights": null,
+    "causeDrunk": false,
+    "causePoison": false,
+    "tags": {
+      "firstNightInfo": false,
+      "firstNightAct": false,
+      "everyNight": false,
+      "otherNights": false,
+      "limited": false,
+      "gainsAbility": false,
+      "passive": false,
+      "deathTrigger": false,
+      "publicTrigger": false
+    }
+  },
+  {
+    "id": "scarletwoman",
+    "name": "红衣女郎",
+    "nameEn": "Scarlet Woman",
+    "type": "minion",
+    "ability": "当恶魔死亡时，如果场上还有5名或更多玩家存活，你变成恶魔。",
+    "image": "",
+    "firstNight": null,
+    "otherNights": null,
+    "causeDrunk": false,
+    "causePoison": false,
+    "tags": {
+      "firstNightInfo": false,
+      "firstNightAct": false,
+      "everyNight": false,
+      "otherNights": false,
+      "limited": false,
+      "gainsAbility": true,
+      "passive": false,
+      "deathTrigger": true,
+      "publicTrigger": false
+    }
+  },
+  {
+    "id": "spy",
+    "name": "间谍",
+    "nameEn": "Spy",
+    "type": "minion",
+    "ability": "每个夜晚，你可以查看魔典。你可能被视为善良角色。",
+    "image": "",
+    "firstNight": 8,
+    "otherNights": 6,
+    "causeDrunk": false,
+    "causePoison": false,
+    "tags": {
+      "firstNightInfo": false,
+      "firstNightAct": false,
+      "everyNight": true,
+      "otherNights": false,
+      "limited": false,
+      "gainsAbility": false,
+      "passive": false,
+      "deathTrigger": false,
+      "publicTrigger": false
+    }
+  }
+]

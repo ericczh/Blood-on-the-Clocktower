@@ -1,48 +1,329 @@
 {% extends "base.html" %}
 {% block title %}角色库{% endblock %}
+{% block head %}
+<style>
+  .filter-panel { background: #12121f; border: 1px solid #2a2a3e; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .filter-section { margin-bottom: 12px; }
+  .filter-section h3 { font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .tag-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    border: 1px solid #2a2a3e; background: #1a1a2e; color: #aaa;
+    transition: all 0.15s; user-select: none;
+  }
+  .tag-btn.active   { color: #fff; }
+  .tag-btn.active.tag-townsfolk { background: rgba(74,158,255,.25); border-color: #4a9eff; color: #4a9eff; }
+  .tag-btn.active.tag-outsider  { background: rgba(34,197,94,.25);  border-color: #22c55e; color: #22c55e; }
+  .tag-btn.active.tag-minion    { background: rgba(249,115,22,.25); border-color: #f97316; color: #f97316; }
+  .tag-btn.active.tag-demon     { background: rgba(239,68,68,.25);  border-color: #ef4444; color: #ef4444; }
+  .tag-btn.active.tag-traveller { background: rgba(168,85,247,.25); border-color: #a855f7; color: #a855f7; }
+  .tag-btn.active.tag-fabled    { background: rgba(234,179,8,.25);  border-color: #eab308; color: #eab308; }
+  .tag-btn.active.tag-ability   { background: rgba(99,102,241,.25); border-color: #818cf8; color: #c7d2fe; }
+  .count-badge { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: rgba(255,255,255,.07); color: #777; }
+  .filter-btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .section-divider { border: none; border-top: 1px solid #2a2a3e; margin: 10px 0; }
+  #filter-toggle { cursor: pointer; font-size: 12px; color: #888; display:flex; align-items:center; gap:4px; }
+  #filter-toggle:hover { color: #ccc; }
+  #filter-summary { font-size: 11px; color: #555; }
+</style>
+{% endblock %}
 {% block content %}
-<div class="flex justify-between items-center mb-6">
-  <h1 class="text-xl font-bold">角色库</h1>
-  <a href="/character/new" class="btn btn-primary">+ 新增角色</a>
-</div>
 
-{% for type_key in ["townsfolk","outsider","minion","demon","traveller","fabled"] %}
-{% if type_key in grouped %}
-<div class="mb-6">
-  <h2 class="text-sm font-bold mb-3 type-{{ type_key }}">
-    {{ type_labels.get(type_key, type_key) }} ({{ grouped[type_key]|length }})
-  </h2>
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-    {% for c in grouped[type_key] %}
-    <div class="card p-3 flex items-center gap-3 bg-type-{{ type_key }}">
-      {% if c.image %}
-        {% if c.image.startswith('http://') or c.image.startswith('https://') %}
-        <img src="{{ c.image }}" class="char-token-sm" alt="{{ c.name }}">
-        {% else %}
-        <img src="/images/{{ c.image }}" class="char-token-sm" alt="{{ c.name }}">
-        {% endif %}
-      {% else %}
-      <div class="char-token-sm flex items-center justify-center text-lg">
-        {{ c.name[0] }}
-      </div>
-      {% endif %}
-      <div class="flex-1 min-w-0">
-        <div class="font-bold text-sm truncate">{{ c.name }}
-          <span class="text-gray-500 text-xs font-normal">{{ c.nameEn }}</span>
-        </div>
-        <div class="text-xs text-gray-400 truncate">{{ c.ability[:40] }}{% if c.ability|length > 40 %}...{% endif %}</div>
-      </div>
-      <div class="flex gap-1 shrink-0">
-        <a href="/character/{{ c.id }}/edit" class="btn btn-ghost text-xs px-2 py-1">编辑</a>
-        <form method="POST" action="/character/{{ c.id }}/delete"
-              onsubmit="return confirm('删除角色 {{ c.name }}？')">
-          <button class="btn btn-danger text-xs px-2 py-1">删</button>
-        </form>
-      </div>
-    </div>
-    {% endfor %}
+{# ── 顶部工具栏 ── #}
+<div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+  <div class="flex items-center gap-3">
+    <h1 class="text-xl font-bold">角色库</h1>
+    <span id="visible-count" class="count-badge">{{ grouped.values() | sum(start=[]) | list | length }} 个</span>
+  </div>
+  <div class="flex gap-2 items-center flex-wrap">
+    <input id="char-search" class="input text-sm" style="width:160px" placeholder="🔍 搜索…" oninput="applyFilters()">
+    <a href="/character/new" class="btn btn-primary text-sm">+ 新增</a>
+    <button id="wiki-sync-btn" class="btn text-sm" style="background:#1e3a5f;color:#60a5fa;border:1px solid #2563eb"
+            onclick="syncWiki()">⟳ Wiki 同步</button>
   </div>
 </div>
-{% endif %}
-{% endfor %}
+
+{# ── 筛选面板 ── #}
+<div class="filter-panel">
+  <div class="flex justify-between items-center mb-2">
+    <div id="filter-toggle" onclick="toggleFilter()">
+      <span id="filter-arrow">▼</span> 筛选条件
+      <span id="filter-summary" class="ml-2"></span>
+    </div>
+    <button onclick="clearFilters()" class="text-xs text-gray-500 hover:text-gray-300" id="clear-btn" style="display:none">✕ 清除</button>
+  </div>
+
+  <div id="filter-body">
+    {# 阵营 #}
+    <div class="filter-section">
+      <h3>阵营</h3>
+      <div class="filter-btn-row">
+        {% for type_key in ["townsfolk","outsider","minion","demon","traveller","fabled"] %}
+        <div class="tag-btn tag-{{ type_key }}" data-filter="type" data-value="{{ type_key }}"
+             onclick="toggleType('{{ type_key }}', this)">
+          {{ type_labels.get(type_key, type_key) }}
+          <span class="count-badge type-count-{{ type_key }}">{{ (grouped.get(type_key, []))|length }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <hr class="section-divider">
+
+    {# 夜晚行动 #}
+    <div class="filter-section">
+      <h3>夜晚行动</h3>
+      <div class="filter-btn-row">
+        <div class="tag-btn tag-ability" data-tag="firstNightInfo" onclick="toggleTag('firstNightInfo', this)">首夜得知</div>
+        <div class="tag-btn tag-ability" data-tag="firstNightAct"  onclick="toggleTag('firstNightAct', this)">首夜行动</div>
+        <div class="tag-btn tag-ability" data-tag="everyNight"     onclick="toggleTag('everyNight', this)">每夜行动</div>
+        <div class="tag-btn tag-ability" data-tag="otherNights"    onclick="toggleTag('otherNights', this)">第二夜起每夜</div>
+      </div>
+    </div>
+
+    {# 能力类型 #}
+    <div class="filter-section">
+      <h3>能力类型</h3>
+      <div class="filter-btn-row">
+        <div class="tag-btn tag-ability" data-tag="limited"      onclick="toggleTag('limited', this)">限次能力</div>
+        <div class="tag-btn tag-ability" data-tag="gainsAbility" onclick="toggleTag('gainsAbility', this)">获得能力</div>
+        <div class="tag-btn tag-ability" data-tag="passive"      onclick="toggleTag('passive', this)">被动能力</div>
+        <div class="tag-btn tag-ability" data-tag="deathTrigger" onclick="toggleTag('deathTrigger', this)">死亡触发</div>
+        <div class="tag-btn tag-ability" data-tag="publicTrigger" onclick="toggleTag('publicTrigger', this)">公开触发</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── 角色卡片列表（服务端渲染，含 data-* 属性供前端筛选） ── #}
+<div id="char-list">
+  {% for type_key in ["townsfolk","outsider","minion","demon","traveller","fabled"] %}
+  {% if type_key in grouped %}
+  <div class="mb-6 type-section" data-type="{{ type_key }}" id="section-{{ type_key }}">
+    <h2 class="text-sm font-bold mb-3 type-{{ type_key }} flex items-center gap-2">
+      {{ type_labels.get(type_key, type_key) }}
+      <span class="section-count count-badge"></span>
+    </h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {% for c in grouped[type_key] %}
+      {% set t = c.to_dict().tags if c.to_dict().tags else {} %}
+      <div class="card p-3 flex items-center gap-3 bg-type-{{ c.type }} char-card"
+           data-name="{{ c.name }}"
+           data-name-en="{{ c.name_en or '' }}"
+           data-type="{{ c.type }}"
+           data-tags="{{ [
+             ('firstNightInfo' if c.tag_first_night_info else ''),
+             ('firstNightAct'  if c.tag_first_night_act  else ''),
+             ('everyNight'     if c.tag_every_night      else ''),
+             ('otherNights'    if c.tag_other_nights     else ''),
+             ('limited'        if c.tag_limited          else ''),
+             ('gainsAbility'   if c.tag_gains_ability    else ''),
+             ('passive'        if c.tag_passive          else ''),
+             ('deathTrigger'   if c.tag_death_trigger    else ''),
+             ('publicTrigger'  if c.tag_public_trigger   else ''),
+           ] | reject('equalto','') | join(',') }}">
+
+        {# Token 图片 #}
+        {% if c.image %}
+          {% if c.image.startswith('http://') or c.image.startswith('https://') %}
+          <img src="{{ c.image }}" class="char-token-sm shrink-0" alt="{{ c.name }}" loading="lazy">
+          {% else %}
+          <img src="/api/images/{{ c.image }}" class="char-token-sm shrink-0" alt="{{ c.name }}" loading="lazy">
+          {% endif %}
+        {% else %}
+        <div class="char-token-sm shrink-0 flex items-center justify-center text-lg font-bold"
+             style="background:#2a2a4e">{{ c.name[0] }}</div>
+        {% endif %}
+
+        {# 信息区 #}
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-sm truncate">{{ c.name }}
+            <span class="text-gray-500 text-xs font-normal">{{ c.name_en }}</span>
+          </div>
+          <div class="text-xs text-gray-400 truncate" title="{{ c.ability or '' }}">
+            {{ (c.ability or '')[:55] }}{% if (c.ability or '')|length > 55 %}…{% endif %}
+          </div>
+          {# 能力标签小徽章 #}
+          <div class="flex flex-wrap gap-1 mt-1">
+            {% if c.tag_first_night_info %}<span class="text-xs px-1 rounded" style="background:#1a2a4a;color:#60a5fa">首夜得知</span>{% endif %}
+            {% if c.tag_first_night_act  %}<span class="text-xs px-1 rounded" style="background:#1a2a4a;color:#93c5fd">首夜行动</span>{% endif %}
+            {% if c.tag_every_night      %}<span class="text-xs px-1 rounded" style="background:#1a2a3a;color:#67e8f9">每夜</span>{% endif %}
+            {% if c.tag_other_nights     %}<span class="text-xs px-1 rounded" style="background:#1a2a3a;color:#a5f3fc">第二夜起</span>{% endif %}
+            {% if c.tag_limited          %}<span class="text-xs px-1 rounded" style="background:#2a1a3a;color:#d8b4fe">限次</span>{% endif %}
+            {% if c.tag_gains_ability    %}<span class="text-xs px-1 rounded" style="background:#2a1a3a;color:#c4b5fd">获得</span>{% endif %}
+            {% if c.tag_passive          %}<span class="text-xs px-1 rounded" style="background:#1a2a1a;color:#86efac">被动</span>{% endif %}
+            {% if c.tag_death_trigger    %}<span class="text-xs px-1 rounded" style="background:#2a1a1a;color:#fca5a5">死亡触发</span>{% endif %}
+            {% if c.tag_public_trigger   %}<span class="text-xs px-1 rounded" style="background:#2a2a1a;color:#fde68a">公开触发</span>{% endif %}
+          </div>
+        </div>
+
+        {# 操作按钮 #}
+        <div class="flex gap-1 shrink-0">
+          <a href="/character/{{ c.id }}/edit" class="btn btn-ghost text-xs px-2 py-1">编辑</a>
+          <form method="POST" action="/character/{{ c.id }}/delete"
+                onsubmit="return confirm('删除角色 {{ c.name }}？')">
+            <button class="btn btn-danger text-xs px-2 py-1">删</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+{# 无结果提示 #}
+<div id="no-result" class="hidden text-center text-gray-600 py-12">
+  😶 没有符合条件的角色
+</div>
+
+{# ── Wiki 同步进度弹窗 ── #}
+<div id="sync-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center">
+  <div class="card p-6 text-center" style="min-width:280px">
+    <div id="sync-spinner" style="font-size:32px;margin-bottom:12px">⏳</div>
+    <div id="sync-msg" class="text-sm text-gray-300 mb-4">正在从 Wiki 抓取角色数据…<br><small class="text-gray-500">首次同步约需 2-3 分钟，请耐心等待</small></div>
+    <div id="sync-result" class="hidden space-y-2"></div>
+    <button id="sync-close" class="btn btn-ghost text-sm mt-4 hidden" onclick="closeSyncModal()">关闭并刷新</button>
+  </div>
+</div>
+
+<script>
+// ── 状态 ──────────────────────────────────────────────────────
+const activeTypes = new Set();
+const activeTags  = new Set();
+let searchQ = '';
+let filterExpanded = true;
+
+// ── 类型切换 ──────────────────────────────────────────────────
+function toggleType(type, el) {
+  el.classList.toggle('active');
+  if (activeTypes.has(type)) activeTypes.delete(type);
+  else activeTypes.add(type);
+  applyFilters();
+}
+
+// ── 标签切换 ──────────────────────────────────────────────────
+function toggleTag(tag, el) {
+  el.classList.toggle('active');
+  if (activeTags.has(tag)) activeTags.delete(tag);
+  else activeTags.add(tag);
+  applyFilters();
+}
+
+// ── 核心筛选逻辑 ──────────────────────────────────────────────
+function applyFilters() {
+  searchQ = document.getElementById('char-search').value.trim().toLowerCase();
+  let visible = 0;
+
+  document.querySelectorAll('.char-card').forEach(card => {
+    const name    = card.dataset.name.toLowerCase();
+    const nameEn  = (card.dataset.nameEn || '').toLowerCase();
+    const type    = card.dataset.type;
+    const tags    = card.dataset.tags ? card.dataset.tags.split(',') : [];
+
+    const passSearch = !searchQ || name.includes(searchQ) || nameEn.includes(searchQ);
+    const passType   = activeTypes.size === 0 || activeTypes.has(type);
+    const passTags   = [...activeTags].every(t => tags.includes(t));
+
+    const show = passSearch && passType && passTags;
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  // 更新每个阵营 section 头计数，隐藏空 section
+  document.querySelectorAll('.type-section').forEach(sec => {
+    const shown = [...sec.querySelectorAll('.char-card')].filter(c => c.style.display !== 'none').length;
+    sec.style.display = shown ? '' : 'none';
+    const badge = sec.querySelector('.section-count');
+    if (badge) badge.textContent = shown;
+  });
+
+  document.getElementById('visible-count').textContent = visible + ' 个';
+  document.getElementById('no-result').classList.toggle('hidden', visible > 0);
+
+  // 更新清除按钮
+  const hasFilter = activeTypes.size > 0 || activeTags.size > 0 || searchQ;
+  document.getElementById('clear-btn').style.display = hasFilter ? '' : 'none';
+
+  // 更新筛选摘要
+  const parts = [];
+  if (activeTypes.size) parts.push([...activeTypes].map(t => t).join('/'));
+  if (activeTags.size)  parts.push([...activeTags].length + ' 个能力标签');
+  document.getElementById('filter-summary').textContent = parts.length ? ('已激活：' + parts.join('，')) : '';
+}
+
+function clearFilters() {
+  activeTypes.clear();
+  activeTags.clear();
+  document.getElementById('char-search').value = '';
+  document.querySelectorAll('.tag-btn.active').forEach(el => el.classList.remove('active'));
+  applyFilters();
+}
+
+function toggleFilter() {
+  filterExpanded = !filterExpanded;
+  document.getElementById('filter-body').style.display = filterExpanded ? '' : 'none';
+  document.getElementById('filter-arrow').textContent = filterExpanded ? '▼' : '▶';
+}
+
+// 初始化每 section 计数
+document.querySelectorAll('.type-section').forEach(sec => {
+  const count = sec.querySelectorAll('.char-card').length;
+  const badge = sec.querySelector('.section-count');
+  if (badge) badge.textContent = count;
+});
+
+// ── Wiki 同步 ─────────────────────────────────────────────────
+function syncWiki() {
+  const modal = document.getElementById('sync-modal');
+  modal.style.display = 'flex';
+  document.getElementById('sync-result').classList.add('hidden');
+  document.getElementById('sync-close').classList.add('hidden');
+  document.getElementById('sync-msg').style.display = '';
+  document.getElementById('sync-spinner').textContent = '⏳';
+  document.getElementById('wiki-sync-btn').disabled = true;
+
+  fetch('/api/sync/wiki', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      // 同步完成后自动打标签
+      return fetch('/api/characters/auto-tag', { method: 'POST' })
+        .then(r2 => r2.json())
+        .then(tagData => ({ ...data, tagged: tagData.processed }));
+    })
+    .then(data => {
+      document.getElementById('sync-spinner').textContent = data.ok ? '✅' : '❌';
+      document.getElementById('sync-msg').style.display = 'none';
+      const res = document.getElementById('sync-result');
+      res.classList.remove('hidden');
+      if (data.ok) {
+        res.innerHTML = `
+          <div class="flash-msg flash-success">同步成功！共处理 <b>${data.total}</b> 个角色</div>
+          <div class="text-sm text-gray-400 mt-2">
+            新增 <b class="text-green-400">${data.imported}</b> ·
+            更新 <b class="text-blue-400">${data.updated}</b> ·
+            跳过 <b class="text-gray-500">${data.skipped}</b>
+            ${data.tagged ? `<br><span class="text-purple-400">自动打标签 ${data.tagged} 个</span>` : ''}
+          </div>`;
+      } else {
+        res.innerHTML = `<div class="flash-msg flash-error">同步失败：${data.error}</div>`;
+      }
+      document.getElementById('sync-close').classList.remove('hidden');
+    })
+    .catch(err => {
+      document.getElementById('sync-spinner').textContent = '❌';
+      document.getElementById('sync-msg').style.display = 'none';
+      const res = document.getElementById('sync-result');
+      res.classList.remove('hidden');
+      res.innerHTML = `<div class="flash-msg flash-error">请求失败：${err}</div>`;
+      document.getElementById('sync-close').classList.remove('hidden');
+    });
+}
+
+function closeSyncModal() {
+  document.getElementById('sync-modal').style.display = 'none';
+  document.getElementById('wiki-sync-btn').disabled = false;
+  location.reload();
+}
+</script>
 {% endblock %}
