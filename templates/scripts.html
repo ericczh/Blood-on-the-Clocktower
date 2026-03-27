@@ -18,7 +18,8 @@
     </div>
     <div class="flex gap-2">
       <a href="/script/{{ s.id }}/edit" class="btn btn-ghost text-xs px-2 py-1">编辑</a>
-      <form method="POST" action="/script/{{ s.id }}/delete" onsubmit="return confirm('确认删除？')">
+      <form method="POST" action="/script/{{ s.id }}/delete" onsubmit="return confirmDelete('{{ s.name }}', this)">
+        <input type="hidden" name="admin_password" class="admin-session-password">
         <button class="btn btn-danger text-xs px-2 py-1">删除</button>
       </form>
     </div>
@@ -46,4 +47,15 @@
 {% else %}
 <p class="text-center text-gray-600 mt-10">还没有板子，点击右上角新建</p>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmDelete(name, form) {
+  const pwd = prompt(`确认删除板子 "${name}" 吗？\n请输入管理员密码以确认：`);
+  if (pwd === null) return false;
+  form.querySelector('.admin-session-password').value = pwd;
+  return true;
+}
+</script>
 {% endblock %}

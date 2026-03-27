@@ -55,6 +55,11 @@ def edit_character(cid):
 @character_bp.route("/<cid>/delete", methods=["POST"])
 def delete_character(cid):
     """软删除角色"""
+    password = request.form.get('admin_password')
+    if password != Config.ADMIN_PASSWORD:
+        flash('权限错误：管理员密码不正确', 'error')
+        return redirect(url_for("character.list_characters"))
+
     if CharacterService.soft_delete(cid):
         flash('角色已删除（可恢复）', 'success')
     else:

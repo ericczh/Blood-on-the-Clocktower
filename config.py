@@ -12,6 +12,9 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         f'sqlite:///{BASE_DIR / "data" / "botc.db"}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # 权限配置
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
     
     # 文件上传配置
     UPLOAD_FOLDER = BASE_DIR / 'uploads' / 'images'

@@ -111,6 +111,12 @@ def edit_script(sid):
 @script_bp.route("/<sid>/delete", methods=["POST"])
 def delete_script(sid):
     """软删除剧本"""
+    from config import Config
+    password = request.form.get('admin_password')
+    if password != Config.ADMIN_PASSWORD:
+        flash('权限错误：管理员密码不正确', 'error')
+        return redirect(url_for("script.list_scripts"))
+
     if ScriptService.soft_delete(sid):
         flash('剧本已删除（可恢复）', 'success')
     else:

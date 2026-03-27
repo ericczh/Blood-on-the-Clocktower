@@ -38,8 +38,6 @@
   <div class="flex gap-2 items-center flex-wrap">
     <input id="char-search" class="input text-sm" style="width:160px" placeholder="🔍 搜索…" oninput="applyFilters()">
     <a href="/character/new" class="btn btn-primary text-sm">+ 新增</a>
-    <button id="wiki-sync-btn" class="btn text-sm" style="background:#1e3a5f;color:#60a5fa;border:1px solid #2563eb"
-            onclick="syncWiki()">⟳ Wiki 同步</button>
   </div>
 </div>
 
@@ -160,7 +158,8 @@
         <div class="flex gap-1 shrink-0">
           <a href="/character/{{ c.id }}/edit" class="btn btn-ghost text-xs px-2 py-1">编辑</a>
           <form method="POST" action="/character/{{ c.id }}/delete"
-                onsubmit="return confirm('删除角色 {{ c.name }}？')">
+                onsubmit="return confirmDelete('{{ c.name }}', this)">
+            <input type="hidden" name="admin_password" class="admin-session-password">
             <button class="btn btn-danger text-xs px-2 py-1">删</button>
           </form>
         </div>
@@ -177,15 +176,15 @@
   😶 没有符合条件的角色
 </div>
 
-{# ── Wiki 同步进度弹窗 ── #}
-<div id="sync-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center">
-  <div class="card p-6 text-center" style="min-width:280px">
-    <div id="sync-spinner" style="font-size:32px;margin-bottom:12px">⏳</div>
-    <div id="sync-msg" class="text-sm text-gray-300 mb-4">正在从 Wiki 抓取角色数据…<br><small class="text-gray-500">首次同步约需 2-3 分钟，请耐心等待</small></div>
-    <div id="sync-result" class="hidden space-y-2"></div>
-    <button id="sync-close" class="btn btn-ghost text-sm mt-4 hidden" onclick="closeSyncModal()">关闭并刷新</button>
-  </div>
-</div>
+{# ── 删除确认脚本 ── #}
+<script>
+function confirmDelete(name, form) {
+  const pwd = prompt(`确认删除角色 "${name}" 吗？\n请输入管理员密码以确认：`);
+  if (pwd === null) return false;
+  form.querySelector('.admin-session-password').value = pwd;
+  return true;
+}
+</script>
 
 <script>
 // ── 状态 ──────────────────────────────────────────────────────
@@ -273,57 +272,5 @@ document.querySelectorAll('.type-section').forEach(sec => {
   if (badge) badge.textContent = count;
 });
 
-// ── Wiki 同步 ─────────────────────────────────────────────────
-function syncWiki() {
-  const modal = document.getElementById('sync-modal');
-  modal.style.display = 'flex';
-  document.getElementById('sync-result').classList.add('hidden');
-  document.getElementById('sync-close').classList.add('hidden');
-  document.getElementById('sync-msg').style.display = '';
-  document.getElementById('sync-spinner').textContent = '⏳';
-  document.getElementById('wiki-sync-btn').disabled = true;
-
-  fetch('/api/sync/wiki', { method: 'POST' })
-    .then(r => r.json())
-    .then(data => {
-      // 同步完成后自动打标签
-      return fetch('/api/characters/auto-tag', { method: 'POST' })
-        .then(r2 => r2.json())
-        .then(tagData => ({ ...data, tagged: tagData.processed }));
-    })
-    .then(data => {
-      document.getElementById('sync-spinner').textContent = data.ok ? '✅' : '❌';
-      document.getElementById('sync-msg').style.display = 'none';
-      const res = document.getElementById('sync-result');
-      res.classList.remove('hidden');
-      if (data.ok) {
-        res.innerHTML = `
-          <div class="flash-msg flash-success">同步成功！共处理 <b>${data.total}</b> 个角色</div>
-          <div class="text-sm text-gray-400 mt-2">
-            新增 <b class="text-green-400">${data.imported}</b> ·
-            更新 <b class="text-blue-400">${data.updated}</b> ·
-            跳过 <b class="text-gray-500">${data.skipped}</b>
-            ${data.tagged ? `<br><span class="text-purple-400">自动打标签 ${data.tagged} 个</span>` : ''}
-          </div>`;
-      } else {
-        res.innerHTML = `<div class="flash-msg flash-error">同步失败：${data.error}</div>`;
-      }
-      document.getElementById('sync-close').classList.remove('hidden');
-    })
-    .catch(err => {
-      document.getElementById('sync-spinner').textContent = '❌';
-      document.getElementById('sync-msg').style.display = 'none';
-      const res = document.getElementById('sync-result');
-      res.classList.remove('hidden');
-      res.innerHTML = `<div class="flash-msg flash-error">请求失败：${err}</div>`;
-      document.getElementById('sync-close').classList.remove('hidden');
-    });
-}
-
-function closeSyncModal() {
-  document.getElementById('sync-modal').style.display = 'none';
-  document.getElementById('wiki-sync-btn').disabled = false;
-  location.reload();
-}
 </script>
 {% endblock %}
