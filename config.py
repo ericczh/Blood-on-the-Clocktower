@@ -14,7 +14,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # 权限配置
-    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'eric')
     
     # 文件上传配置
     UPLOAD_FOLDER = BASE_DIR / 'uploads' / 'images'
