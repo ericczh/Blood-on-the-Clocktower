@@ -20,6 +20,36 @@ def list_scripts():
     )
 
 
+@script_bp.route("/<sid>")
+def script_detail(sid):
+    """剧本详情"""
+    script = ScriptService.get_by_id(sid)
+    if not script:
+        flash('剧本不存在', 'error')
+        return redirect(url_for("script.list_scripts"))
+
+    characters = CharacterService.get_all()
+    char_map = {c.id: c for c in characters}
+
+    script_dict = script.to_dict()
+    selected_characters = [
+        char_map[cid] for cid in script_dict['characterIds']
+        if cid in char_map
+    ]
+
+    grouped = {}
+    for character in selected_characters:
+        grouped.setdefault(character.type, []).append(character)
+
+    return render_template(
+        "script_detail.html",
+        script=script_dict,
+        characters=selected_characters,
+        grouped=grouped,
+        type_labels=TYPE_LABELS,
+    )
+
+
 @script_bp.route("/new", methods=["GET", "POST"])
 def create_script():
     """创建剧本"""

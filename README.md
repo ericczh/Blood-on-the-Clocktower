@@ -56,6 +56,7 @@ botc-assistant-py/
 - `GET /character/new` - 创建角色页面
 - `GET /character/<id>/edit` - 编辑角色页面
 - `GET /script/` - 剧本列表
+- `GET /script/<id>` - 剧本详情页
 - `GET /script/new` - 创建剧本页面
 - `GET /script/<id>/edit` - 编辑剧本页面
 - `GET /game/<id>` - 游戏详情页
@@ -96,6 +97,58 @@ python app_new.py
 ```
 
 访问 http://localhost:5555
+
+### 一键启动 Flask + Tunnel
+```bash
+cd botc-assistant-py
+./start_with_tunnel.sh
+```
+
+脚本会自动：
+- 创建/激活 `.venv`
+- 安装依赖
+- 启动 Flask
+- 使用 `http2` 协议启动 Cloudflare Tunnel
+- 输出公网 `trycloudflare.com` 地址
+
+运行日志保存在：
+- `.run/flask.log`
+- `.run/cloudflared.log`
+
+### 一键停止
+```bash
+cd botc-assistant-py
+./stop.sh
+```
+
+会按 PID 文件停止：
+- Flask
+- Cloudflare Tunnel
+
+如果没有 PID 文件，脚本也会尝试按 `5555` 端口自动清理旧的 Flask 进程。
+
+### 一键重启
+```bash
+cd botc-assistant-py
+./restart.sh
+```
+
+会先执行 `./stop.sh`，再重新执行 `./start_with_tunnel.sh`。
+
+### macOS 双击运行
+也可以直接在 Finder 里双击这些文件：
+- `start_with_tunnel.command`
+- `stop.command`
+- `restart.command`
+
+### Cloudflare Tunnel
+如果 Quick Tunnel 默认协议不稳定，使用下面的命令更稳：
+
+```bash
+cloudflared tunnel --url http://localhost:5555 --protocol http2
+```
+
+出现 `control stream encountered a failure while serving` 时，优先改用 `http2`，不要继续使用默认的 `quic`。
 
 ### 生产环境
 ```bash

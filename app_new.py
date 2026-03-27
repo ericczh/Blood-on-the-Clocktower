@@ -1,15 +1,17 @@
 """血染钟楼 · 说书人助手 — Flask 重构版
 
 启动方式：
-  cd /Users/wikiglobal/botc-assistant-py
-  python3 app_new.py
+  cd /Users/wikiglobal/others/botc-assistant-py
+  source .venv/bin/activate
+  python app_new.py
   # 访问 http://localhost:5555
 
-部署方式：
-  1. 项目根目录已有 requirements.txt
-  2. 在 Render 创建 Web Service，指向你的 GitHub 仓库
-  3. Start Command 填 gunicorn app_new:app
-  4. 自动分配 HTTPS 域名
+部署方式（Cloudflare Tunnel）：
+  1. brew install cloudflared（仅首次）
+  2. python app_new.py                              # 启动 Flask
+  3. cloudflared tunnel --url http://localhost:5555  # 新终端启动隧道
+  4. 隧道会分配一个 https://xxx.trycloudflare.com 公网地址
+  5. 手机（5G/WiFi）直接访问该地址即可
 """
 import os
 from flask import Flask

@@ -32,6 +32,19 @@ fi
 echo ""
 echo "启动应用..."
 echo "访问地址: http://localhost:5555"
+echo "外网地址: https://botc-assistant-py.loca.lt"
 echo "按 Ctrl+C 停止服务"
 echo ""
-python app_new.py
+
+# 后台启动 Flask
+python app_new.py &
+FLASK_PID=$!
+
+# 等待两秒让 Flask 先起来
+sleep 2
+
+# 启动内网穿透
+npx localtunnel --port 5555 --subdomain botc-assistant-py
+
+# 如果 localtunnel 退出，顺便杀掉后端的 Flask
+kill $FLASK_PID

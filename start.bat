@@ -31,8 +31,17 @@ REM 启动应用
 echo.
 echo 启动应用...
 echo 访问地址: http://localhost:5555
+echo 外网地址: https://botc-assistant-py.loca.lt
 echo 按 Ctrl+C 停止服务
 echo.
-python app_new.py
+
+REM 后台启动 Flask
+start /B python app_new.py
+
+REM 等待两秒让 Flask 先起来
+timeout /t 2 /nobreak >nul
+
+REM 启动内网穿透
+call npx localtunnel --port 5555 --subdomain botc-assistant-py
 
 pause

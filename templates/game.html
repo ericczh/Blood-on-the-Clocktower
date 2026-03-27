@@ -49,8 +49,8 @@
   </div>
   {% for seat in game.seats %}
   {% set angle = -1.5708 + (loop.index0 * 6.2832 / n) %}
-  {% set x = cx + (r * angle|cos)|round|int %}
-  {% set y = cy + (r * angle|sin)|round|int %}
+  {% set x = cx + (r * cos(angle))|round|int %}
+  {% set y = cy + (r * sin(angle))|round|int %}
   {% if seat.characterId and seat.characterId in char_map %}
     {% set char_type = char_map[seat.characterId].type %}
     {% set char_name = char_map[seat.characterId].name %}
@@ -80,7 +80,7 @@
       {% if img.startswith('http://') or img.startswith('https://') %}
       <img src="{{ img }}" class="seat-img">
       {% else %}
-      <img src="/images/{{ img }}" class="seat-img">
+      <img src="/api/images/{{ img }}" class="seat-img">
       {% endif %}
     {% endif %}
   </div>

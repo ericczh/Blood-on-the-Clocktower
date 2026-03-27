@@ -44,7 +44,7 @@
   <a href="/character/" class="{% if '/character' in request.path %}active{% endif %}">角色库</a>
   <a href="/script/" class="{% if '/script' in request.path %}active{% endif %}">板子管理</a>
 </nav>
-<main class="max-w-2xl mx-auto px-4 py-6">
+<main class="{% block main_class %}max-w-2xl{% endblock %} mx-auto px-4 py-6">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="mb-4 space-y-2">

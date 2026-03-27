@@ -11,7 +11,9 @@
 <div class="card p-4 mb-3">
   <div class="flex justify-between items-start mb-3">
     <div>
-      <h3 class="font-bold">{{ s.name }}</h3>
+      <h3 class="font-bold">
+        <a href="/script/{{ s.id }}" class="hover:text-indigo-300 transition-colors">{{ s.name }}</a>
+      </h3>
       <span class="text-xs text-gray-500">{{ s.characterIds|length }} 个角色</span>
     </div>
     <div class="flex gap-2">
@@ -31,7 +33,7 @@
         {% if c.image.startswith('http://') or c.image.startswith('https://') %}
         <img src="{{ c.image }}" class="w-4 h-4 rounded-full object-cover">
         {% else %}
-        <img src="/images/{{ c.image }}" class="w-4 h-4 rounded-full object-cover">
+        <img src="/api/images/{{ c.image }}" class="w-4 h-4 rounded-full object-cover">
         {% endif %}
       {% endif %}
       {{ c.name }}

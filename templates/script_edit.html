@@ -46,7 +46,11 @@
                class="char-cb" data-type="{{ type_key }}"
                {{ "checked" if c.id in selected_ids else "" }}>
         {% if c.image %}
-        <img src="/images/{{ c.image }}" class="w-8 h-8 rounded-full object-cover shrink-0">
+          {% if c.image.startswith('http://') or c.image.startswith('https://') %}
+        <img src="{{ c.image }}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="{{ c.name }}" loading="lazy">
+          {% else %}
+        <img src="/api/images/{{ c.image }}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="{{ c.name }}" loading="lazy">
+          {% endif %}
         {% else %}
         <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-sm shrink-0">{{ c.name[0] }}</div>
         {% endif %}

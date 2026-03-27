@@ -44,7 +44,7 @@
         {% if char.image.startswith('http://') or char.image.startswith('https://') %}
         <img src="{{ char.image }}" class="char-token" alt="">
         {% else %}
-        <img src="/images/{{ char.image }}" class="char-token" alt="">
+        <img src="/api/images/{{ char.image }}" class="char-token" alt="">
         {% endif %}
       {% else %}
       <div class="char-token flex items-center justify-center text-2xl text-gray-500">?</div>

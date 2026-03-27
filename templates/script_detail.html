@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}{{ script.name }} - 板子详情{% endblock %}
+{% block main_class %}max-w-6xl{% endblock %}
+{% block head %}
+<style>
+  .board-hero {
+    background:
+      radial-gradient(circle at top, rgba(99, 102, 241, 0.35), transparent 35%),
+      radial-gradient(circle at bottom right, rgba(236, 72, 153, 0.18), transparent 30%),
+      linear-gradient(135deg, #17172a, #0f0f1a 55%, #161629);
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  }
+  .board-token {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .board-token:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  }
+  .board-token img,
+  .board-token-fallback {
+    width: 84px;
+    height: 84px;
+    border-radius: 9999px;
+    object-fit: cover;
+    border: 3px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .board-token-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: #cbd5e1;
+  }
+  .stat-chip {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between gap-3">
+  <div>
+    <a href="/script/" class="text-sm text-gray-400 hover:text-white">← 返回板子管理</a>
+    <h1 class="mt-2 text-3xl font-bold tracking-tight">{{ script.name }}</h1>
+  </div>
+  <a href="/script/{{ script.id }}/edit" class="btn btn-primary">编辑板子</a>
+</div>
+
+<section class="board-hero rounded-3xl p-5 sm:p-7">
+  <div class="flex flex-wrap items-center gap-3 mb-6">
+    <span class="stat-chip rounded-full px-3 py-1 text-sm text-gray-200">共 {{ characters|length }} 个角色</span>
+    {% for type_key in ["townsfolk","outsider","minion","demon","traveller","fabled"] %}
+      {% if type_key in grouped %}
+      <span class="stat-chip rounded-full px-3 py-1 text-sm type-{{ type_key }}">
+        {{ type_labels.get(type_key, type_key) }} {{ grouped[type_key]|length }}
+      </span>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    {% for c in characters %}
+    <div class="board-token rounded-2xl p-4 text-center">
+      <div class="flex justify-center mb-3">
+        {% if c.image %}
+          {% if c.image.startswith('http://') or c.image.startswith('https://') %}
+          <img src="{{ c.image }}" alt="{{ c.name }}" loading="lazy">
+          {% else %}
+          <img src="/api/images/{{ c.image }}" alt="{{ c.name }}" loading="lazy">
+          {% endif %}
+        {% else %}
+        <div class="board-token-fallback">{{ c.name[0] }}</div>
+        {% endif %}
+      </div>
+      <div class="text-sm font-semibold">{{ c.name }}</div>
+      {% if c.name_en %}
+      <div class="text-xs text-gray-400 mt-1">{{ c.name_en }}</div>
+      {% endif %}
+      <div class="mt-2 text-xs">
+        <span class="inline-flex rounded-full px-2 py-1 bg-white/5 type-{{ c.type }}">{{ type_labels.get(c.type, c.type) }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mt-6 grid gap-4 lg:grid-cols-2">
+  {% for type_key in ["townsfolk","outsider","minion","demon","traveller","fabled"] %}
+    {% if type_key in grouped %}
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold type-{{ type_key }}">{{ type_labels.get(type_key, type_key) }}</h2>
+        <span class="text-xs text-gray-500">{{ grouped[type_key]|length }} 个</span>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% for c in grouped[type_key] %}
+        <div class="px-3 py-2 rounded-full text-sm bg-white/5 border border-white/10">
+          {{ c.name }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+</section>
+{% endblock %}
