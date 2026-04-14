@@ -30,6 +30,53 @@ SKIP_TITLES = {
     "暗流涌动", "黯月初升", "梦殒春宵", "实验性角色", "官方角色",
 }
 
+# 可抓取的剧本页配置。页面后半段有时会混入其他剧本、旅行者或传奇角色，
+# 因此使用 gallery 起始位置和阵营顺序做精确裁剪。
+SCRIPT_DEFS = {
+    "tb": {
+        "slug": "暗流涌动",
+        "name": "暗流涌动 (Trouble Brewing)",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "bmr": {
+        "slug": "黯月初升",
+        "name": "黯月初升 (Bad Moon Rising)",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "snv": {
+        "slug": "梦殒春宵",
+        "name": "梦殒春宵 (Sects & Violets)",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "wdcs": {
+        "slug": "华灯初上",
+        "name": "华灯初上",
+        "gallery_start": 1,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "syyl": {
+        "slug": "山雨欲来",
+        "name": "山雨欲来",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "wsyy": {
+        "slug": "无上愉悦",
+        "name": "无上愉悦",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "qqsy": {
+        "slug": "窃窃私语",
+        "name": "窃窃私语",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+}
+
 # --------------------------------------------------------------------- #
 # HTML 解析辅助类
 # --------------------------------------------------------------------- #
@@ -140,6 +187,49 @@ def _title_from_url(url: str) -> str:
     return urllib.parse.unquote(titles[0])
 
 
+def _extract_gallery_links(
+    html: str,
+    start_gallery: int = 0,
+    limit_galleries: int | None = None,
+    gallery_types: list[str] | None = None,
+) -> list[dict]:
+    """从一个或多个 gallery 区块中提取去重后的页面链接。"""
+    galleries = re.findall(
+        r'<ul class="gallery mw-gallery-nolines[^"]*"[^>]*>(.*?)</ul>',
+        html,
+        re.DOTALL,
+    )
+    galleries = galleries[start_gallery:]
+    if limit_galleries is not None:
+        galleries = galleries[:limit_galleries]
+
+    results = []
+    seen_urls: set[str] = set()
+
+    for idx, gallery in enumerate(galleries):
+        items = re.findall(r'<li\s+class="gallerybox"[^>]*>(.*?)</li>', gallery, re.DOTALL)
+        for item in items:
+            m = re.search(r'href="(/index\.php\?title=([^"#&]+))"', item)
+            if not m:
+                continue
+            path = m.group(1)
+            title = urllib.parse.unquote(m.group(2))
+            full_url = WIKI_BASE + path
+
+            if title in SKIP_TITLES or full_url in seen_urls:
+                continue
+            if title.startswith("特殊:") or ":" in title:
+                continue
+
+            seen_urls.add(full_url)
+            data = {"url": full_url, "name": title}
+            if gallery_types and idx < len(gallery_types):
+                data["type"] = gallery_types[idx]
+            results.append(data)
+
+    return results
+
+
 # --------------------------------------------------------------------- #
 # 分类页抓取
 # --------------------------------------------------------------------- #
@@ -155,37 +245,52 @@ def scrape_category(category_slug: str, char_type: str) -> list[dict]:
     print(f"  ▶ 分类页: {url}")
     html = _fetch(url)
 
-    results = []
-    seen_urls: set[str] = set()
-
-    # 找所有 gallery list item 内的链接
-    # 结构：<li class="gallerybox"> … <a href="/index.php?title=xxx">…</a> … </li>
-    gallery_items = re.findall(
-        r'<li\s+class="gallerybox"[^>]*>(.*?)</li>',
-        html, re.DOTALL
-    )
-
-    for item in gallery_items:
-        # 提取 href
-        m = re.search(r'href="(/index\.php\?title=([^"#&]+))"', item)
-        if not m:
-            continue
-        path = m.group(1)
-        title_encoded = m.group(2)
-        title = urllib.parse.unquote(title_encoded)
-        full_url = WIKI_BASE + path
-
-        # 跳过已知非角色和重复
-        if title in SKIP_TITLES or full_url in seen_urls:
-            continue
-        # 跳过特殊页面
-        if title.startswith("特殊:") or ":" in title:
-            continue
-        seen_urls.add(full_url)
-        results.append({"url": full_url, "type": char_type, "name": title})
+    results = [
+        {**item, "type": char_type}
+        for item in _extract_gallery_links(html)
+    ]
 
     print(f"    找到 {len(results)} 个角色链接")
     return results
+
+
+def scrape_script(script_id: str) -> dict:
+    """抓取一个官方基础剧本页面，返回剧本名和角色页面链接。"""
+    if script_id not in SCRIPT_DEFS:
+        raise ValueError(f"未知剧本: {script_id}")
+
+    meta = SCRIPT_DEFS[script_id]
+    slug = meta["slug"]
+    url = f"{WIKI_BASE}/index.php?title={urllib.parse.quote(slug)}"
+    print(f"  ▶ 剧本页: {url}")
+    html = _fetch(url)
+
+    characters = _extract_gallery_links(
+        html,
+        start_gallery=meta.get("gallery_start", 0),
+        limit_galleries=len(meta["gallery_types"]),
+        gallery_types=meta["gallery_types"],
+    )
+    return {
+        "id": script_id,
+        "name": meta["name"],
+        "wiki_url": url,
+        "characters": characters,
+    }
+
+
+def scrape_official_scripts(delay: float = 0.5) -> list[dict]:
+    """抓取当前配置中的所有可用剧本。"""
+    scripts = []
+    for script_id, meta in SCRIPT_DEFS.items():
+        print(f"\n{'='*50}")
+        print(f"剧本: {meta['name']}")
+        print(f"{'='*50}")
+        script = scrape_script(script_id)
+        print(f"  找到 {len(script['characters'])} 个角色链接")
+        scripts.append(script)
+        time.sleep(delay)
+    return scripts
 
 
 # --------------------------------------------------------------------- #

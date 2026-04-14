@@ -35,8 +35,8 @@ botc-assistant-py/
 
 ### 2. 数据库支持
 - 使用 SQLite（开发）/ PostgreSQL（生产）
-- 支持从旧JSON文件自动迁移数据
-- 数据持久化到数据库，不再保存在代码目录
+- 剧本种子可从 `data/scripts.json` 初始化
+- 角色与对局数据以数据库为准
 
 ### 3. 文件管理
 - 上传文件保存到 `uploads/` 目录（独立于代码）
@@ -127,19 +127,10 @@ cd botc-assistant-py
 
 如果没有 PID 文件，脚本也会尝试按 `5555` 端口自动清理旧的 Flask 进程。
 
-### 一键重启
-```bash
-cd botc-assistant-py
-./restart.sh
-```
-
-会先执行 `./stop.sh`，再重新执行 `./start_with_tunnel.sh`。
-
 ### macOS 双击运行
 也可以直接在 Finder 里双击这些文件：
 - `start_with_tunnel.command`
 - `stop.command`
-- `restart.command`
 
 ### Cloudflare Tunnel
 如果 Quick Tunnel 默认协议不稳定，使用下面的命令更稳：
@@ -157,14 +148,18 @@ export SECRET_KEY=your-secret-key
 gunicorn app_new:app -b 0.0.0.0:5555
 ```
 
-## 数据迁移
+## 默认数据
 
-首次启动时，系统会自动检测 `data/` 目录下的JSON文件并迁移到数据库：
-- `characters.json` → `characters` 表
-- `scripts.json` → `scripts` 表
-- `games.json` → `games` 表
+首次启动时，如果数据库里的 `scripts` 表为空，系统会从 `data/scripts.json` 导入默认剧本。
 
-迁移完成后，旧JSON文件可以保留作为备份。
+角色和对局数据以数据库为准，不再依赖旧的 JSON 备份文件。
+
+如果你更新了数据库里的剧本，建议执行下面的命令回写种子文件：
+
+```bash
+cd botc-assistant-py
+./.venv/bin/python wiki_tools.py export-scripts
+```
 
 ## 软删除与恢复
 

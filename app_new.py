@@ -34,8 +34,8 @@ def create_app(config_name='default'):
     # 创建数据库表
     with app.app_context():
         db.create_all()
-        # 迁移旧数据（如果需要）
-        _migrate_old_data()
+        # 导入默认剧本种子数据（仅首次）
+        _seed_default_scripts()
     
     # 确保上传目录存在
     Config.UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -43,36 +43,14 @@ def create_app(config_name='default'):
     return app
 
 
-def _migrate_old_data():
-    """从JSON文件迁移数据到数据库"""
+def _seed_default_scripts():
+    """首次启动时从 scripts.json 导入默认剧本。"""
     from pathlib import Path
     import json
-    from models import Character, Script, Game
+    from models import Script
     
     data_dir = Path(__file__).parent / 'data'
-    
-    # 迁移角色
-    char_file = data_dir / 'characters.json'
-    if char_file.exists() and Character.query.count() == 0:
-        chars = json.loads(char_file.read_text('utf-8'))
-        for c in chars:
-            character = Character(
-                id=c.get('id'),
-                name=c.get('name'),
-                name_en=c.get('nameEn'),
-                type=c.get('type', 'townsfolk'),
-                ability=c.get('ability'),
-                image=c.get('image'),
-                first_night=c.get('firstNight'),
-                other_nights=c.get('otherNights'),
-                cause_drunk=c.get('causeDrunk', False),
-                cause_poison=c.get('causePoison', False),
-            )
-            db.session.add(character)
-        db.session.commit()
-        print(f"✓ 迁移了 {len(chars)} 个角色")
-    
-    # 迁移剧本
+
     script_file = data_dir / 'scripts.json'
     if script_file.exists() and Script.query.count() == 0:
         scripts = json.loads(script_file.read_text('utf-8'))
@@ -84,25 +62,7 @@ def _migrate_old_data():
             )
             db.session.add(script)
         db.session.commit()
-        print(f"✓ 迁移了 {len(scripts)} 个剧本")
-    
-    # 迁移游戏
-    game_file = data_dir / 'games.json'
-    if game_file.exists() and Game.query.count() == 0:
-        games = json.loads(game_file.read_text('utf-8'))
-        for g in games:
-            game = Game(
-                id=g.get('id'),
-                script_id=g.get('scriptId'),
-                script_name=g.get('scriptName'),
-                seats=json.dumps(g.get('seats', [])),
-                days=json.dumps(g.get('days', [])),
-                status=g.get('status', 'active'),
-                winner=g.get('winner'),
-            )
-            db.session.add(game)
-        db.session.commit()
-        print(f"✓ 迁移了 {len(games)} 个游戏")
+        print(f"✓ 导入了 {len(scripts)} 个默认剧本")
 
 
 if __name__ == "__main__":

@@ -7,6 +7,14 @@
       --force  同时更新已存在的角色
       --dry    只预览，不写数据库
 
+  .venv/bin/python wiki_tools.py import-scripts [--force] [--dry]
+      从 Wiki 抓取官方基础剧本并导入数据库
+      --force  同时更新已存在的剧本
+      --dry    只预览，不写数据库
+
+  .venv/bin/python wiki_tools.py export-scripts [--out data/scripts.json]
+      将数据库中的剧本导出为默认种子文件
+
   .venv/bin/python wiki_tools.py export [--dir data/by_type]
       将数据库角色按阵营类型导出为独立 JSON 文件
       输出：townsfolk.json / outsider.json / minion.json / demon.json / traveller.json / fabled.json
@@ -164,6 +172,125 @@ def cmd_import(args):
             print(f"完成：新增 {imported} 个，更新 {updated} 个，跳过 {skipped} 个")
 
 
+def cmd_import_scripts(args):
+    from utils.wiki_scraper import scrape_character, scrape_official_scripts
+    from app_new import create_app
+    from models import db, Character, Script
+    from services.character_service import _infer_tags
+
+    print("=" * 60)
+    print("  血染钟楼 · Wiki 剧本导入")
+    print("=" * 60)
+
+    app = create_app("development")
+    with app.app_context():
+        imported = updated = skipped = 0
+
+        for script_data in scrape_official_scripts(delay=0.5):
+            character_ids = []
+            missing = []
+
+            for item in script_data["characters"]:
+                character = Character.query.filter_by(name=item["name"], deleted_at=None).first()
+
+                if not character:
+                    try:
+                        scraped = scrape_character(item["url"])
+                    except Exception as exc:
+                        print(f"  ! 角色补抓失败 {item['name']}: {exc}")
+                        missing.append(item["name"])
+                        continue
+
+                    if not scraped:
+                        missing.append(item["name"])
+                        continue
+
+                    cid = _char_id(scraped)
+                    character = Character.query.filter_by(id=cid, deleted_at=None).first()
+                    if not character:
+                        tags = _infer_tags(scraped.get("ability", "") or "")
+                        character = Character(
+                            id=cid,
+                            name=scraped["name"],
+                            name_en=scraped.get("name_en", ""),
+                            type=item.get("type", "townsfolk"),
+                            ability=scraped.get("ability", ""),
+                            image=scraped.get("image", ""),
+                            **tags,
+                        )
+                        db.session.add(character)
+                        db.session.commit()
+                        print(f"  + 已补抓角色: {scraped['name']} ({character.id})")
+
+                if character:
+                    character_ids.append(character.id)
+                else:
+                    missing.append(item["name"])
+
+            if missing:
+                print(f"  ! 剧本 {script_data['name']} 缺少角色: {', '.join(missing)}")
+                if not args.force:
+                    print("  - 未开启 --force，跳过该剧本")
+                    skipped += 1
+                    continue
+
+            if args.dry:
+                print(f"  [dry] {script_data['id']}: {len(character_ids)} 个角色")
+                continue
+
+            existing = Script.query.filter_by(id=script_data["id"]).first()
+            payload = json.dumps(character_ids, ensure_ascii=False)
+
+            if existing:
+                if args.force:
+                    existing.name = script_data["name"]
+                    existing.character_ids = payload
+                    existing.deleted_at = None
+                    db.session.commit()
+                    print(f"  ↺ 已更新: {script_data['name']} ({len(character_ids)} 个角色)")
+                    updated += 1
+                else:
+                    print(f"  - 已存在，跳过: {script_data['name']}")
+                    skipped += 1
+            else:
+                script = Script(
+                    id=script_data["id"],
+                    name=script_data["name"],
+                    character_ids=payload,
+                )
+                db.session.add(script)
+                db.session.commit()
+                print(f"  ✓ 已写入: {script_data['name']} ({len(character_ids)} 个角色)")
+                imported += 1
+
+        if not args.dry:
+            print(f"\n{'='*60}")
+            print(f"完成：新增 {imported} 个，更新 {updated} 个，跳过 {skipped} 个")
+
+
+def cmd_export_scripts(args):
+    from app_new import create_app
+    from models import Script
+
+    out_path = os.path.join(os.path.dirname(__file__), args.out)
+
+    app = create_app("development")
+    with app.app_context():
+        scripts = (
+            Script.query
+            .filter_by(deleted_at=None)
+            .order_by(Script.id.asc())
+            .all()
+        )
+        payload = [s.to_dict() for s in scripts]
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+    print(f"已导出 {len(payload)} 个剧本到 {out_path}")
+
+
 # ─────────────────────────────────────────────────────────────
 # 子命令：export
 # ─────────────────────────────────────────────────────────────
@@ -211,11 +338,13 @@ def cmd_auto_tag(args):
 # 子命令：all（一键全流程）
 # ─────────────────────────────────────────────────────────────
 def cmd_all(args):
-    print(">>> Step 1/3: import")
+    print(">>> Step 1/4: import")
     cmd_import(args)
-    print("\n>>> Step 2/3: auto-tag")
+    print("\n>>> Step 2/4: import-scripts")
+    cmd_import_scripts(args)
+    print("\n>>> Step 3/4: auto-tag")
     cmd_auto_tag(args)
-    print("\n>>> Step 3/3: export")
+    print("\n>>> Step 4/4: export")
     args.dir = "data/by_type"
     cmd_export(args)
 
@@ -234,6 +363,13 @@ def main():
     p_import.add_argument("--force", action="store_true", help="覆盖已存在角色")
     p_import.add_argument("--dry",   action="store_true", help="试运行，不写数据库")
 
+    p_import_scripts = sub.add_parser("import-scripts", help="从 Wiki 爬取并导入官方剧本")
+    p_import_scripts.add_argument("--force", action="store_true", help="覆盖已存在剧本")
+    p_import_scripts.add_argument("--dry",   action="store_true", help="试运行，不写数据库")
+
+    p_export_scripts = sub.add_parser("export-scripts", help="导出数据库剧本为种子文件")
+    p_export_scripts.add_argument("--out", default="data/scripts.json", help="输出文件")
+
     p_export = sub.add_parser("export", help="按阵营导出 JSON 文件")
     p_export.add_argument("--dir", default="data/by_type", help="输出目录")
 
@@ -243,7 +379,14 @@ def main():
     p_all.add_argument("--force", action="store_true", help="覆盖已存在角色")
 
     args = parser.parse_args()
-    {"import": cmd_import, "export": cmd_export, "auto-tag": cmd_auto_tag, "all": cmd_all}[args.cmd](args)
+    {
+        "import": cmd_import,
+        "import-scripts": cmd_import_scripts,
+        "export-scripts": cmd_export_scripts,
+        "export": cmd_export,
+        "auto-tag": cmd_auto_tag,
+        "all": cmd_all,
+    }[args.cmd](args)
 
 
 if __name__ == "__main__":
