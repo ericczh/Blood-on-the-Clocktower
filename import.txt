@@ -1,0 +1,334 @@
+⏺ 隧道连上了 ✅,但有个地方要注意
+
+  关键信息                                                                                                                                                                            
+   
+  Registered tunnel connection ... location=lax01 protocol=quic   ← 洛杉矶节点 1                                                                                                      
+  Registered tunnel connection ... location=lax08 protocol=quic   ← 洛杉矶节点 2                                                                                                      
+                                                                                                                                                                                      
+  两条 QUIC 长连接已经建到 Cloudflare 洛杉矶边缘节点,tunnel ID 3965256f-7699-43e8-8f73-e052254f22aa 状态正常,Zero Trust Dashboard 里应该显示绿色 HEALTHY。                            
+                                                                                                                                                                                      
+  ⚠️  一个小隐患:ICMP proxy 用了 198.18.0.1                                                                                                                                            
+                                                                                                                                   
+  ICMP proxy will use 198.18.0.1 as source for IPv4                                                                                                                                   
+                                                                                                                                                                                      
+  198.18.x.x 是 Clash 的 fake-ip 段(你前面配的 fake-ip-range: 198.18.0.1/16),cloudflared 错把它当成本机 IPv4 源地址了。影响:                                                          
+                                                                                                                                                                                      
+  - HTTP/HTTPS 流量不受影响(走 QUIC/TCP,已经成功注册),你的 botc 网页正常能用                                                                                                          
+  - 只有隧道内 ping/ICMP 功能会有问题,日常几乎用不到                                                                               
+                                                                                                                                                                                      
+  Zero Trust 里如果用 WARP Connector + 私网打通场景会踩到这个坑;你现在只是暴露一个 HTTP 服务给公网,可以完全忽略。                                                                     
+                                                                                                                                                                                      
+  想彻底避免就把 Clash 的 fake-ip 段换成默认 198.18.0.1/16 以外的,比如 28.0.0.1/8(Mihomo 默认),但没必要为这个改。                                                                     
+                                                                                                                                                                                      
+  下一步(最后一步)                                                                                                                                                                    
+                                                                                                                                   
+  去 Cloudflare Zero Trust → Networks → Tunnels:                                                                                                                                      
+   
+  1. 找到 ID 3965256f-... 那条 tunnel,确认状态 HEALTHY                                                                                                                                
+  2. 点进去 → Public Hostname 标签 → Add a public hostname                                                                         
+  3. 填:                                                                                                                                                                              
+    - Subdomain: botc(随你喜欢)                                                                                                                                                       
+    - Domain: 选你已接入 Cloudflare 的域名                                                                                                                                            
+    - Service Type: HTTP                                                                                                                                                              
+    - URL: localhost:5555                                                                                                          
+  4. 保存                                                                                                                                                                             
+                                                                                                                                   
+  然后起 Flask:                                                                                                                                                                       
+                                                                                                                                   
+  cd /Users/wikiglobal/others/botc-assistant-py
+  source .venv/bin/activate                                                                                                                                                           
+  python main.py
+                                                                                                                                                                                      
+  浏览器访问 https://botc.<你的域名>/ 就通了,自动 HTTPS。                                                                                                                             
+   
+❯ 我刚刚的操作是在干什么？最后一步有什么用，还有现在我还没买域名，域名在哪里加，还有我本地的隧道要一直开着吗？为啥会有本地隧道进程                                                    
+                                                                                                                                   
+⏺ 从头解释一遍你在干什么                                                                                                                                                              
+                                                                                                                                  
+  你刚刚做了什么                                                                                                                                                                      
+                                                                                                                                                                                      
+  你用一个 Token(就是那串 eyJh... Base64)把你这台 Mac 注册成了 Cloudflare Tunnel 的一个"连接器"。                                                                                     
+                                                                                                                                  
+  整个链路是这样:                                                                                                                                                                     
+                                                                                                                                  
+  [公网用户的浏览器]
+         ↓ https://xxx.yourdomain.com                                                                                                                                                 
+  [Cloudflare 全球边缘网络]   ← Cloudflare 自己的服务器                                                                                                                               
+         ↕ QUIC 长连接(加密隧道)                                                                                                                                                      
+  [你 Mac 上的 cloudflared 进程] ← 就是 PID 21785 那个                                                                                                                                
+         ↓ localhost:5555                                                                                                                                                             
+  [你的 Flask 应用]                                                                                                                                                                   
+                                                                                                                                                                                      
+  这个 Token 不是随便一串字符。它是你(或者之前有人)在 Cloudflare Zero Trust 后台建 Tunnel 时生成的,包含了:                                                                            
+  - Tunnel ID(那个 3965256f-... UUID)                                                                                                                                                 
+  - 账号 ID                                                                                                                                                                           
+  - 一个签名密钥                                                                                                                  
+                                                                                                                                                                                      
+  cloudflared 拿着这个 token 就知道"我是谁、连到哪个账号的哪条 tunnel"。                                                                                                              
+                                                                                                                                                                                      
+  ⚠️  这个 token 等同于密码,别贴到公开地方。你刚才在我们对话里贴了,严格说应该去 Cloudflare 后台把这条 tunnel 的 token 重新 rotate 一次更安全(Tunnel 页面 → Configure → Rotate          
+  token)。自用工具问题不大,提醒一下。                                                                                                                                                 
+                                                                                                                                                                                      
+  "最后一步"(Public Hostname)是干什么的                                                                                                                                               
+   
+  现在隧道是搭好了但两头没接的状态:                                                                                                                                                   
+                                                                                                                                  
+  - 一头已经接上:cloudflared ↔ Cloudflare 边缘(你看到的 lax01、lax08 两条连接)✅                                                                                                      
+  - 另一头还空着:Cloudflare 不知道"当有人访问 xxx.yourdomain.com 时,该把请求扔进这条隧道的哪个本地端口"❌                         
+                                                                                                                                                                                      
+  Public Hostname 就是告诉 Cloudflare:                                                                                            
+                                                                                                                                                                                      
+  ▎ "收到对 botc.yourdomain.com 的请求时,通过这条隧道发给对端的 localhost:5555"                                                                                                       
+   
+  配完这一步,整条路才通。没配的话,隧道就是个空转的连接,没任何流量走它。                                                                                                               
+                                                                                                                                  
+  关于域名:现在没买怎么办?                                                                                                                                                            
+                                                                                                                                  
+  必须先有一个接入 Cloudflare 的域名才能加 Public Hostname,这是硬门槛,绕不过去。几条路:                                                                                               
+                                                                                                                                  
+  路径 A:腾讯云/阿里云/Namecheap 买一个(推荐)                                                                                                                                         
+  1. 任意注册商买个 .com(¥70/年)、.xyz(¥10/年首年)都行                                                                            
+  2. Cloudflare Dashboard → Add a site → 输入域名 → 选 Free 套餐                                                                                                                      
+  3. Cloudflare 给你两个 NS 地址                                                                                                  
+  4. 回注册商控制台,把 DNS 服务器改成这两个 NS                                                                                                                                        
+  5. 等生效(5 分钟 ~ 几小时)                                                                                                                                                          
+  6. 然后才能去 Public Hostname 里选到这个域名                                                                                                                                        
+                                                                                                                                                                                      
+  路径 B:Cloudflare Registrar 直接买(最省事)                                                                                                                                          
+  Cloudflare 自家也卖域名,成本价(.com 差不多 $10/年、没有"首年便宜、续费涨价"那套把戏),买完自动就在 Cloudflare 了,跳过改 NS 那步。Dashboard 左侧 Domain Registration                  
+  里。唯一缺点:不支持中国大陆支付方式,得有 Visa/Master 国际卡。                                                                                                                       
+                                                                                                                                                                                      
+  路径 C:先用 Cloudflare 免费子域占坑                                                                                                                                                 
+  Cloudflare Zero Trust 里建 Application 时,没有自己域名的话可以临时用 *.cfargotunnel.com 的内部地址,但那个只在 Access 认证场景下好用,公开 HTTP 不方便。不推荐,还不如花 10 块买个
+  .xyz。                                                                                                                                                                              
+                                                                                                                                  
+  建议:买个 .xyz 或 .top 这种便宜的(一年几块钱),先跑通,以后要正式用再换。                                                                                                             
+                                                                                                                                  
+  本地隧道进程要一直开着吗?                                                                                                                                                           
+                                                                                                                                  
+  对,必须一直开着。这就是它的工作原理 —— cloudflared 主动从你 Mac 连出去 到 Cloudflare,保持长连接。Cloudflare 收到公网请求后,把请求沿着这条已有的长连接反向送回到你 Mac。             
+   
+  - cloudflared 关了 → 长连接断 → Cloudflare 那边 Tunnel 状态变 DOWN → 访问 xxx.yourdomain.com 返回 Error 1033(tunnel offline)                                                        
+  - 你 Mac 关机 / 休眠 → 同上                                                                                                     
+  - 网络断 → 自动重连,恢复后继续用                                                                                                                                                    
+                                                                                                                                                                                      
+  所以它为什么叫"Tunnel":因为这根管子必须一直插着两头才能通水。                                                                                                                       
+                                                                                                                                                                                      
+  为啥会有"本地隧道进程"                                                                                                                                                              
+                                                                                                                                  
+  因为你家里这台 Mac 没有公网 IP(你前面看到的 198.18.0.1 是 Clash 的 fake-ip,不是真公网)。公网上的浏览器没法直接找到你这台机器。                                                      
+   
+  传统做法是这样的:                                                                                                                                                                   
+  - 买台公网服务器 → 装 nginx → 做反向代理 → 但你家里 Mac 还是得有办法让那台服务器访问到(内网穿透/frp/wireguard...)               
+                                                                                                                                                                                      
+  Cloudflare Tunnel 把这事做成了"出站打洞":
+  - 你 Mac 主动出去连 Cloudflare(出站流量一般不被路由器/防火墙拦)                                                                                                                     
+  - 公网请求从 Cloudflare 那边"塞进"这条已有连接                                                                                                                                      
+  - 不用公网 IP、不用开路由器端口、不用 DDNS、HTTPS 自动有                                                                                                                            
+                                                                                                                                                                                      
+  本质就是花一个本地常驻进程,换一个公网入口。这个进程不能停 —— 停了就没入口了。                                                                                                       
+                                                                                                                                                                                      
+  你现在要做的事(按顺序)                                                                                                                                                              
+                                                                                                                                                                                      
+  1. 买一个域名(哪家都行,能改 NS 就行)                                                                                                                                                
+  2. 在 Cloudflare 添加站点,把域名 NS 指过来,等生效                                                                               
+  3. Zero Trust → Networks → Tunnels,找到你那条 tunnel,Public Hostname → Add,填:                                                                                                      
+    - Subdomain: 随你喜欢(botc)                                                                                                                                                       
+    - Domain: 下拉选你刚接入的域名                                                                                                                                                    
+    - Service: HTTP                                                                                                                                                                   
+    - URL: localhost:5555                                                                                                                                                             
+  4. 起 Flask,访问 https://botc.<你域名>/ 看到登录页 = 成功                                                                       
+                                                                                                                                                                                      
+  本地这个 cloudflared 服务装过一次就不用管了,开机自动启,后台常驻。你只需要管 Flask 进程。                                                                                            
+                                                                                                                                                                                      
+  日常使用                                                                                                                                                                            
+                                                                                                                                  
+  以后每天:                                                                                                                                                                           
+                                                                                                                                  
+  cd /Users/wikiglobal/others/botc-assistant-py
+  source .venv/bin/activate
+  python main.py
+
+  就这一条命令。隧道自己在后台跑,公网链接永远是同一个。                                                                                                                               
+   
+✻ Churned for 45s                                                                                                                                                                     
+                                                                                                                                  
+❯ [Image #7]                                                                                                                                                                          
+  ⎿  [Image #7]
+                                                                                                                                                                                      
+⏺ 状态完美 ✅                                                                                                                      
+                                                                                                                                                                                      
+  一眼看过去:                                                                                                                                                                         
+                                                                                                                                                                                      
+  ┌─────────────┬──────────────────────────────────────┬───────────────────────────────────────────────────────┐                                                                      
+  │     项      │                  值                  │                         解读                          │                    
+  ├─────────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────┤
+  │ Status      │ HEALTHY 🟢                           │ 隧道健康                                              │
+  ├─────────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────┤
+  │ Uptime      │ 39 分钟                              │ 自启动后没掉过线                                      │                                                                      
+  ├─────────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────┤                                                                      
+  │ Connector   │ 1 个,EricMacBook-Pro.local,Connected │ 你这台 Mac 连上了                                     │                                                                      
+  ├─────────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────┤                                                                      
+  │ Data center │ lax                                  │ 连到洛杉矶边缘节点                                    │                    
+  ├─────────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────┤                                                                      
+  │ Origin IP   │ 27.115.63.242                        │ Cloudflare 看到的你这边出口公网 IP(属正常信息,不敏感) │                    
+  ├─────────────┼──────────────────────────────────────┼───────────────────────────────────────────────────────┤                                                                      
+  │ Version     │ 2026.3.0                             │ 最新版                                                │                    
+  └─────────────┴──────────────────────────────────────┴───────────────────────────────────────────────────────┘                                                                      
+                                                                                                                                    
+  接下来点这里                                                                                                                                                                        
+                                                                                                                                    
+  现在你停在 Overview 标签,需要切到旁边的标签配置入口。看你截图顶部的标签栏:                                                                                                          
+                                                                                                                                    
+  Overview | CIDR routes | Hostname routes (Beta) | Published application routes | Live logs                                                                                          
+                                                                                                                                                                                      
+  你要的是 Hostname routes (或者有些版本叫 Public Hostnames,作用一样)。点进去 → 点 Add a public hostname / Add hostname route。                                                       
+                                                                                                                                                                                      
+  但是现在点进去会卡住                                                                                                                                                                
+                                                                                                                                    
+  因为 Domain 下拉框是空的 —— 你还没在 Cloudflare 接入任何域名。页面可能会提示 "No zones available" 或类似。                                                                          
+                                                                                                                                    
+  所以当前要做的:去买域名                                                                                                                                                             
+                                                                                                                                    
+  两个推荐路径,挑一个:                                                                                                                                                                
+                                                                                                                                    
+  最快路径:Cloudflare Registrar 自家买(需要 Visa/Master 国际卡)                                                                                                                       
+  - 左上你头像所在 Dashboard 首页 → Domain Registration → Register Domains                                                          
+  - 搜一个便宜的,.xyz 首年 $1 起,.com 约 $10/年                                                                                                                                       
+  - 买完自动在你账号里,不用改 NS,立即能用                                                                                           
+  - 回 Zero Trust 配 Hostname routes,Domain 下拉就能选到                                                                                                                              
+                                                                                                                                                                                      
+  国内路径:腾讯云/阿里云买 → 改 NS 到 Cloudflare                                                                                                                                      
+  - 任意注册商买个域名                                                                                                                                                                
+  - Cloudflare 主 Dashboard(不是 Zero Trust 这个界面,左上角头像 → Back to Czh.eric1020@gma... 回主 Dashboard)→ Add a site → 输入域名 → 选 Free                                        
+  - 拿到两个 NS 地址(类似 xxx.ns.cloudflare.com)                                                                                                                                      
+  - 回腾讯云 → 我的域名 → 修改 DNS 服务器 → 填这两个 NS                                                                                                                               
+  - 等 5 分钟~几小时生效(Cloudflare 会邮件通知)                                                                                                                                       
+  - 回 Zero Trust,Domain 下拉里就会出现这个域名                                                                                                                                       
+                                                                                                                                                                                      
+  域名接入后回来做的事                                                                                                                                                                
+                                                                                                                                                                                      
+  回到这个 NYC_botc_prod 页面 → Hostname routes (或 Public Hostnames) → Add:                                                                                                          
+                                                                                                                                    
+  ┌───────────┬────────────────────┐                                                                                                                                                  
+  │   字段    │         值         │                                                                                                
+  ├───────────┼────────────────────┤
+  │ Subdomain │ botc(随你)         │
+  ├───────────┼────────────────────┤
+  │ Domain    │ 下拉选刚接入的域名 │                                                                                                                                                  
+  ├───────────┼────────────────────┤                                                                                                                                                  
+  │ Path      │ 留空               │                                                                                                                                                  
+  ├───────────┼────────────────────┤                                                                                                                                                  
+  │ Type      │ HTTP               │                                                                                                
+  ├───────────┼────────────────────┤
+  │ URL       │ localhost:5555     │
+  └───────────┴────────────────────┘                                                                                                                                                  
+   
+  保存,完事。然后 Flask 起起来,浏览器访问 https://botc.<你的域名>/ 就能看到血染钟楼登录页。                                                                                           
+                                                                                                                                    
+  一句话总结                                                                                                                                                                          
+                                                                                                                                    
+  你现在 tunnel 本地端已经全部就位,只差一个域名。买完域名接入 Cloudflare → 回 Hostname routes 配一条路由 → 大功告成。                                                                 
+   
+❯ 如果我换了电脑怎么办                                                                                                                                                                
+                                                                                                                                    
+⏺ 换电脑很简单 —— 隧道本身在云端,不绑电脑                                                                                                                                             
+                                                                                                                                    
+  核心概念:你看到的 NYC_botc_prod 这条 Tunnel、Tunnel ID、Hostname routes 配置,全在 Cloudflare 云端。本地 cloudflared 只是一个"连接器"(Connector),可以在任意数量的机器上跑,作用都是把 
+  Cloudflare 的流量转发到本机的某个端口。                                                                                                                                             
+                                                                                                                                                                                      
+  所以换电脑 = 换一个新 Connector,Tunnel 和域名配置一行都不用改。                                                                                                                     
+   
+  场景 A:旧电脑还在,新电脑接管(推荐做法)                                                                                                                                              
+                                                                                                                                    
+  新电脑上:                                                                                                                                                                           
+                                                                                                                                    
+  brew install cloudflared                                                                                                                                                            
+  sudo cloudflared service install <你的 token>   # 同一个 token 复用                                                               
+                                                                                                                                                                                      
+  就这两条命令。新电脑的 cloudflared 启动后会自动加入同一条 tunnel,你的 Connectors 列表就会变成 2 个(看截图那个列表会多一行)。                                                        
+                                                                                                                                                                                      
+  Cloudflare 会自动在两个 Connector 之间做负载均衡和故障转移:                                                                                                                         
+                                                                                                                                    
+  - 两台都开机 → 流量随机分配,任意一台挂了另一台顶上(高可用)                                                                                                                          
+  - 只开新电脑 → 流量全走新电脑                                                                                                     
+  - 只开旧电脑 → 流量全走旧电脑                                                                                                                                                       
+                                                                                                                                    
+  Flask 应用要在哪台就把哪台的 cloudflared 跑起来就行。因为 Cloudflare 只负责送到 localhost:5555,这个 localhost 是各自机器的 localhost。                                              
+                                                                                                                                    
+  彻底迁移完成后,旧电脑上卸载:                                                                                                                                                        
+                                                                                                                                    
+  sudo cloudflared service uninstall
+                                                                                                                                                                                      
+  Cloudflare 后台 Connectors 列表里旧的那条状态会变 Disconnected,点旁边删掉即可。                                                                                                     
+                                                                                                                                                                                      
+  场景 B:旧电脑丢了/坏了/没了                                                                                                                                                         
+                                                                                                                                    
+  一样,新电脑上:                                                                                                                                                                      
+                                                                                                                                    
+  brew install cloudflared
+  sudo cloudflared service install <你的 token>
+                                                                                                                                                                                      
+  完事。Cloudflare 看到新 Connector 上来,自动接管流量。公网 URL https://botc.<你域名>/ 一秒不变。                                                                                     
+                                                                                                                                                                                      
+  Token 在哪里找                                                                                                                                                                      
+                                                                                                                                    
+  如果你忘了当初那串 eyJh...:                                                                                                                                                         
+                                                                                                                                    
+  Cloudflare Zero Trust → Networks → Tunnels → NYC_botc_prod → Configure → 有个 "Install connector" 区块,里面显示 token 和一键安装命令(复制粘贴即可)。                                
+                                                                                                                                    
+  或者在顶部 ... (更多菜单) → Refresh token 重新生成一个新 token(旧的立即失效,老机器上的连接会断,适合旧电脑丢了安全起见)。                                                            
+                                                                                                                                    
+  会丢什么?不会丢什么?                                                                                                                                                                
+                                                                                                                                    
+  ┌───────────────────────────────────┬─────────────────┬──────────────────────────┐                                                                                                  
+  │               项目                │    换电脑后     │           说明           │                                                
+  ├───────────────────────────────────┼─────────────────┼──────────────────────────┤                                                                                                  
+  │ Tunnel ID                         │ ✅ 不变         │ 存在 Cloudflare 云端     │                                                
+  ├───────────────────────────────────┼─────────────────┼──────────────────────────┤
+  │ 公网域名 botc.xxx.com             │ ✅ 不变         │ DNS 记录在 Cloudflare 上 │                                                                                                  
+  ├───────────────────────────────────┼─────────────────┼──────────────────────────┤                                                                                                  
+  │ Hostname routes 配置              │ ✅ 不变         │ 云端配置                 │                                                                                                  
+  ├───────────────────────────────────┼─────────────────┼──────────────────────────┤                                                                                                  
+  │ SSL 证书                          │ ✅ 不变         │ Cloudflare 托管          │                                                
+  ├───────────────────────────────────┼─────────────────┼──────────────────────────┤                                                                                                  
+  │ Connector ID                      │ ❌ 换新         │ 新机器新 ID,这是预期     │                                                
+  ├───────────────────────────────────┼─────────────────┼──────────────────────────┤                                                                                                  
+  │ 本地 Flask 数据(SQLite / uploads) │ ❌ 需要手动迁移 │ 这才是你真正要备份的东西 │                                                
+  └───────────────────────────────────┴─────────────────┴──────────────────────────┘                                                                                                  
+                                                                                                                                    
+  所以真正要操心的是 Flask 这边                                                                                                                                                       
+                                                                                                                                    
+  换电脑时要带走的是你的应用数据:                                                                                                                                                     
+   
+  # 旧电脑                                                                                                                                                                            
+  cd /Users/wikiglobal/others/botc-assistant-py                                                                                     
+  ls                      # 看有哪些数据文件                                                                                                                                          
+  # 一般要带走:
+  #   - 代码本身(git 或手动打包)                                                                                                                                                      
+  #   - SQLite 数据库文件(默认可能在 instance/ 或项目根)                                                                                                                              
+  #   - data/ 目录(剧本 JSON)                                                                                                                                                         
+  #   - 如果有 uploads 目录                                                                                                                                                           
+                                                                                                                                                                                      
+  # 打包                                                                                                                            
+  tar czf botc-backup.tar.gz botc-assistant-py/                                                                                                                                       
+                                                                                                                                                                                      
+  新电脑:
+                                                                                                                                                                                      
+  # 解压到对应位置                                                                                                                  
+  # 重建 venv                                                                                                                                                                         
+  cd botc-assistant-py
+  python3 -m venv .venv                                                                                                                                                               
+  source .venv/bin/activate                                                                                                                                                           
+  pip install -r requirements.txt   # 如果有 requirements.txt
+  python main.py                                                                                                                                                                      
+                                                                                                                                                                                      
+  然后把 cloudflared 按上面装上,两边一对接,公网链接又能用了。                                                                                                                         
+                                                                                                                                                                                      
+  建议现在就做的一件事:把 token 记到密码管理器                                                                                                                                        
+                                                                                                                                    
+  那串 eyJh... 是你未来换机器、重装系统时的唯一凭证。存到 1Password / Bitwarden / 或者 Mac 自带的 Keychain,随便哪都行,别只留在终端历史里(终端历史会被 brew upgrade 之类清掉)。        
+                                                                                                                                    
+  一句话总结                                                                                                                                                                          
+                                                                                                                                    
+  隧道在云,连接器在本地。换电脑 = 在新机器上用同一个 token 再装一遍 cloudflared,其他全不用动。公网 URL、域名、SSL 全部无缝继承。  
