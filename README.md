@@ -161,6 +161,21 @@ cd botc-assistant-py
 ./.venv/bin/python wiki_tools.py export-scripts
 ```
 
+## 日常维护
+
+推荐按下面的顺序维护数据：
+
+```bash
+cd botc-assistant-py
+./.venv/bin/python wiki_tools.py import --force
+./.venv/bin/python wiki_tools.py import-scripts --force
+./.venv/bin/python wiki_tools.py export-scripts
+```
+
+- `import`：同步角色资料、图片和能力文本
+- `import-scripts`：同步剧本，并自动补抓剧本中缺失的角色
+- `export-scripts`：把当前数据库里的剧本回写到 `data/scripts.json`
+
 ## 软删除与恢复
 
 ### 查看已删除数据

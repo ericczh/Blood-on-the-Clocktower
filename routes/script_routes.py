@@ -9,14 +9,27 @@ from utils.constants import TYPE_LABELS
 @script_bp.route("/")
 def list_scripts():
     """剧本列表"""
-    scripts = ScriptService.get_all()
     characters = CharacterService.get_all()
     char_map = {c.id: c for c in characters}
+    selected_ids = [cid for cid in request.args.getlist("characters") if cid in char_map]
+    match = request.args.get("match", "all")
+    if match not in {"all", "any"}:
+        match = "all"
+
+    scripts = ScriptService.filter_by_character_ids(selected_ids, match=match)
+
+    filtered_groups = {}
+    for character in characters:
+        filtered_groups.setdefault(character.type, []).append(character)
     
     return render_template(
         "scripts.html",
         scripts=[s.to_dict() for s in scripts],
-        char_map=char_map
+        char_map=char_map,
+        grouped=filtered_groups,
+        type_labels=TYPE_LABELS,
+        selected_ids=set(selected_ids),
+        match_mode=match,
     )
 
 

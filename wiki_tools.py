@@ -8,7 +8,7 @@
       --dry    只预览，不写数据库
 
   .venv/bin/python wiki_tools.py import-scripts [--force] [--dry]
-      从 Wiki 抓取官方基础剧本并导入数据库
+      从 Wiki 抓取当前配置的剧本并导入数据库
       --force  同时更新已存在的剧本
       --dry    只预览，不写数据库
 
@@ -23,7 +23,7 @@
       对所有角色按能力描述文字自动推断并保存筛选标签
 
   .venv/bin/python wiki_tools.py all [--force]
-      依次执行 import → auto-tag → export（一键全流程）
+      依次执行 import → import-scripts → auto-tag → export（一键全流程）
 """
 import os
 import re
@@ -363,7 +363,7 @@ def main():
     p_import.add_argument("--force", action="store_true", help="覆盖已存在角色")
     p_import.add_argument("--dry",   action="store_true", help="试运行，不写数据库")
 
-    p_import_scripts = sub.add_parser("import-scripts", help="从 Wiki 爬取并导入官方剧本")
+    p_import_scripts = sub.add_parser("import-scripts", help="从 Wiki 爬取并导入当前配置剧本")
     p_import_scripts.add_argument("--force", action="store_true", help="覆盖已存在剧本")
     p_import_scripts.add_argument("--dry",   action="store_true", help="试运行，不写数据库")
 

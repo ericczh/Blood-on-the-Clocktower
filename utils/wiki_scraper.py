@@ -75,6 +75,66 @@ SCRIPT_DEFS = {
         "gallery_start": 0,
         "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
     },
+    "yhjm": {
+        "slug": "移花接木",
+        "name": "移花接木",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "mth": {
+        "slug": "满堂红",
+        "name": "满堂红",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "jmtx": {
+        "slug": "寄梦他乡",
+        "name": "寄梦他乡",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "ssh": {
+        "slug": "十三行",
+        "name": "十三行",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "jqsg": {
+        "slug": "九泉颂歌",
+        "name": "九泉颂歌",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "ryxw": {
+        "slug": "日月偕亡",
+        "name": "日月偕亡",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "wycs": {
+        "slug": "雾隐苍生",
+        "name": "雾隐苍生",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "zgqm": {
+        "slug": "子规泣鸣",
+        "name": "子规泣鸣",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "jgtm": {
+        "slug": "金戈铁马",
+        "name": "金戈铁马",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon"],
+    },
+    "qjqm": {
+        "slug": "曲尽其妙",
+        "name": "曲尽其妙",
+        "gallery_start": 0,
+        "gallery_types": ["townsfolk", "outsider", "minion", "demon", "fabled"],
+    },
 }
 
 # --------------------------------------------------------------------- #

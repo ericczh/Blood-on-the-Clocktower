@@ -14,6 +14,25 @@ class ScriptService:
         if not include_deleted:
             query = query.filter_by(deleted_at=None)
         return query.order_by(Script.created_at.desc()).all()
+
+    @staticmethod
+    def filter_by_character_ids(character_ids, include_deleted=False, match="all"):
+        """按角色筛选剧本。"""
+        scripts = ScriptService.get_all(include_deleted=include_deleted)
+        wanted = [cid for cid in character_ids if cid]
+        if not wanted:
+            return scripts
+
+        result = []
+        for script in scripts:
+            script_ids = set(script.to_dict().get("characterIds", []))
+            if match == "any":
+                ok = any(cid in script_ids for cid in wanted)
+            else:
+                ok = all(cid in script_ids for cid in wanted)
+            if ok:
+                result.append(script)
+        return result
     
     @staticmethod
     def get_by_id(script_id, include_deleted=False):

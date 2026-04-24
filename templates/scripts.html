@@ -6,6 +6,44 @@
   <a href="/script/new" class="btn btn-primary">+ 新建板子</a>
 </div>
 
+<form method="GET" class="card p-4 mb-6">
+  <div class="flex flex-col gap-4">
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="text-sm text-gray-400">按角色筛选板子</span>
+      <label class="text-xs flex items-center gap-1">
+        <input type="radio" name="match" value="all" {% if match_mode == 'all' %}checked{% endif %}>
+        同时包含
+      </label>
+      <label class="text-xs flex items-center gap-1">
+        <input type="radio" name="match" value="any" {% if match_mode == 'any' %}checked{% endif %}>
+        包含任一
+      </label>
+      <button type="submit" class="btn btn-primary text-xs px-3 py-1.5">筛选</button>
+      {% if selected_ids %}
+      <a href="/script/" class="btn btn-ghost text-xs px-3 py-1.5">清空</a>
+      {% endif %}
+    </div>
+
+    {% for type_key, chars in grouped.items() %}
+    <div>
+      <div class="text-xs uppercase tracking-wide text-gray-500 mb-2">{{ type_labels.get(type_key, type_key) }}</div>
+      <div class="flex flex-wrap gap-2">
+        {% for c in chars %}
+        <label class="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border border-opacity-30 type-{{ c.type }}" style="border-color: currentColor; background: rgba(128,128,128,0.08);">
+          <input type="checkbox" name="characters" value="{{ c.id }}" {% if c.id in selected_ids %}checked{% endif %}>
+          <span>{{ c.name }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</form>
+
+{% if selected_ids %}
+<p class="text-sm text-gray-400 mb-4">当前筛选：{{ scripts|length }} 个板子</p>
+{% endif %}
+
 {% if scripts %}
 {% for s in scripts %}
 <div class="card p-4 mb-3">
